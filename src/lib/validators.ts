@@ -3,9 +3,9 @@ import { cuidSchema } from '@/lib/cuid-schema'
 
 // Order item validation
 export const orderItemSchema = z.object({
-  menuItemId: cuidSchema,
+  menuItemId: z.string().min(1).max(50),  // Accept any valid ID format
   quantity: z.number().int().positive().min(1).max(99),
-  menuItemVariantId: cuidSchema.optional()
+  menuItemVariantId: z.string().min(1).max(50).nullable().optional()  // Accept string, null, or undefined
 })
 
 // Order validation
@@ -23,7 +23,7 @@ export const orderCreateSchema = z.object({
   customerPhone: z.string().regex(/^[0-9+ ]{6,14}$/).optional(),
   customerName: z.string().max(100).optional(),
   orderNumber: z.number().int().positive().optional()
-})
+}).passthrough() // Allow extra fields like subtotal, total, taxRate
 
 // User validation
 export const userCreateSchema = z.object({
@@ -154,7 +154,7 @@ export const branchCostUpdateSchema = branchCostCreateSchema.partial()
 export interface ValidationResult<T> {
   success: boolean
   data?: T
-  errors: z.ZodError[]
+  errors: z.ZodIssue[]
 }
 
 /**
@@ -165,14 +165,14 @@ export function validateRequest<T>(
   data: unknown
 ): ValidationResult<T> {
   const result = schema.safeParse(data)
-  
+
   if (!result.success) {
     return {
       success: false,
-      errors: result.error.errors
+      errors: result.error.issues  // Zod v4 uses 'issues' instead of 'errors'
     }
   }
-  
+
   return {
     success: true,
     data: result.data
@@ -182,7 +182,7 @@ export function validateRequest<T>(
 /**
  * Format Zod errors for API responses
  */
-export function formatZodErrors(errors: z.ZodError[]): string {
+export function formatZodErrors(errors: z.ZodIssue[]): string {
   return errors.map(err => {
     const path = err.path.join('.')
     const message = err.message

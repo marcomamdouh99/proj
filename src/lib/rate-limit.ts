@@ -3,6 +3,8 @@
  * Note: For production with multiple servers, use Redis-based rate limiting
  */
 
+import { NextResponse } from 'next/server'
+
 interface RateLimitStore {
   count: number
   resetTime: number

@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
   try {
     // Validate request with Zod
     const validationResult = validateRequest(orderCreateSchema, await request.json());
-    
+
     if (!validationResult.success) {
       return NextResponse.json(
         {

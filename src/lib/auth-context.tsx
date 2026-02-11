@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Set user from session response
-      setUser({
+      const userData = {
         id: data.session.userId,
         username: data.session.username,
         email: data.session.email,
@@ -59,7 +59,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: data.session.role,
         branchId: data.session.branchId,
         isActive: true,
-      });
+      };
+
+      // Set user state
+      setUser(userData);
+
+      // Store in localStorage as fallback (for preview environments)
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('user', JSON.stringify(userData));
+
       showSuccessToast('Welcome back!', `Logged in as ${data.session.name || data.session.username}`);
     } catch (err) {
       showErrorToast('Network Error', 'Failed to connect. Please try again.');
@@ -102,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount (client-side only)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // First check localStorage for legacy data (backward compatibility)
+      // First check localStorage for fallback (needed for preview environments)
       const storedUser = localStorage.getItem('user');
       const isLoggedIn = localStorage.getItem('isLoggedIn');
 
@@ -112,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.error('Failed to parse stored user:', err);
           localStorage.removeItem('user');
+          localStorage.removeItem('isLoggedIn');
         }
       }
 
@@ -122,14 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(async (response) => {
           const data = await response.json();
           if (data.success && data.user) {
+            // Server session is valid, update user state
             setUser(data.user);
-            // Clear legacy localStorage after successful session validation
-            localStorage.removeItem('user');
-            localStorage.removeItem('isLoggedIn');
+            // Update localStorage to match server session
+            localStorage.setItem('user', JSON.stringify(data.user));
+            localStorage.setItem('isLoggedIn', 'true');
           }
+          // If session API fails, we keep the localStorage user as fallback
         })
         .catch(err => {
-          console.error('Session validation error:', err);
+          console.error('Session validation error, using localStorage fallback:', err);
+          // User is already set from localStorage above, no action needed
         });
     }
   }, []);

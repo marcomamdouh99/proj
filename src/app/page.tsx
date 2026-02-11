@@ -56,11 +56,10 @@ export default function POSDashboard() {
 
   // Check authentication on mount
   useEffect(() => {
-    const isLoggedIn = localStorage.getItem('isLoggedIn');
-    if (isLoggedIn !== 'true') {
+    if (!user) {
       router.push('/login');
     }
-  }, [router]);
+  }, [user, router]);
 
   // For cashiers, check if they have an active shift and redirect to shifts tab if not
   useEffect(() => {
