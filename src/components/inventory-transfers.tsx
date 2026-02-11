@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -483,8 +483,8 @@ export default function InventoryTransfers() {
                 </TableHeader>
                 <TableBody>
                   {transfers.map((transfer) => (
-                    <>
-                      <TableRow key={transfer.id}>
+                    <Fragment key={transfer.id}>
+                      <TableRow>
                         <TableCell>
                           <Button
                             variant="ghost"
@@ -576,8 +576,8 @@ export default function InventoryTransfers() {
                                 Transfer Items ({(transfer.items || []).length})
                               </h4>
                               <div className="space-y-2">
-                                {(transfer.items || []).map((item, idx) => (
-                                  <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-slate-200 last:border-0">
+                                {(transfer.items || []).map((item) => (
+                                  <div key={`${transfer.id}-${item.ingredientId}`} className="flex items-center justify-between text-sm py-2 border-b border-slate-200 last:border-0">
                                     <span className="font-medium">{item.ingredient?.name || item.ingredientId}</span>
                                     <div className="flex items-center gap-3">
                                       <span className="text-slate-600">{item.quantity} {item.unit}</span>
@@ -599,7 +599,7 @@ export default function InventoryTransfers() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   ))}
                 </TableBody>
               </Table>
