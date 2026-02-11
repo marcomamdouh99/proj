@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
       customerAddressId,
       customerPhone,
       customerName,
+      courierId,
       orderNumber
     } = validationResult.data;
 
@@ -276,6 +277,7 @@ export async function POST(request: NextRequest) {
           deliveryFee: deliveryFee || 0,
           customerId: customerId || null,
           customerAddressId: customerAddressId || null,
+          courierId: courierId || null,
           transactionHash,
           synced: false,
           shiftId: currentShiftId,
@@ -325,6 +327,63 @@ export async function POST(request: NextRequest) {
           },
         },
       });
+    }
+
+    // Update customer statistics
+    if (customerId) {
+      // Calculate loyalty points (1 point per 100 EGP spent = 0.01 points per EGP)
+      const pointsEarned = subtotal / 100;
+
+      await db.customer.update({
+        where: { id: customerId },
+        data: {
+          totalSpent: {
+            increment: subtotal,
+          },
+          orderCount: {
+            increment: 1,
+          },
+          loyaltyPoints: {
+            increment: pointsEarned,
+          },
+        },
+      });
+
+      // Create loyalty transaction record
+      await db.loyaltyTransaction.create({
+        data: {
+          customerId,
+          points: pointsEarned,
+          type: 'EARNED',
+          orderId: order.order.id,
+          amount: subtotal,
+          notes: `Order #${finalOrderNumber}`,
+        },
+      });
+
+      // Update customer tier based on total spent
+      const updatedCustomer = await db.customer.findUnique({
+        where: { id: customerId },
+      });
+
+      if (updatedCustomer) {
+        let newTier = 'BRONZE';
+        // Update tier thresholds based on total spent (in EGP)
+        if (updatedCustomer.totalSpent >= 10000) {
+          newTier = 'PLATINUM';
+        } else if (updatedCustomer.totalSpent >= 5000) {
+          newTier = 'GOLD';
+        } else if (updatedCustomer.totalSpent >= 2000) {
+          newTier = 'SILVER';
+        }
+
+        if (updatedCustomer.tier !== newTier) {
+          await db.customer.update({
+            where: { id: customerId },
+            data: { tier: newTier },
+          });
+        }
+      }
     }
 
     const responseOrder = order.order;

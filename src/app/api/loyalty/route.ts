@@ -4,21 +4,21 @@ import { z } from 'zod';
 
 // Loyalty configuration
 const LOYALTY_CONFIG = {
-  pointsPerCurrency: 1, // 1 point per currency unit spent
-  pointsValue: 0.05, // Each point is worth 0.05 currency units
+  pointsPerCurrency: 0.01, // 0.01 points per currency unit (10 points per 1000)
+  pointsValue: 1, // Each point is worth 1 currency unit
   tiers: {
     BRONZE: { minPoints: 0, discount: 0, name: 'Bronze' },
-    SILVER: { minPoints: 100, discount: 5, name: 'Silver' },
-    GOLD: { minPoints: 500, discount: 10, name: 'Gold' },
-    PLATINUM: { minPoints: 1000, discount: 15, name: 'Platinum' },
+    SILVER: { minPoints: 20, discount: 5, name: 'Silver' }, // 20 points = 2000 EGP spent
+    GOLD: { minPoints: 50, discount: 10, name: 'Gold' },    // 50 points = 5000 EGP spent
+    PLATINUM: { minPoints: 100, discount: 15, name: 'Platinum' }, // 100 points = 10000 EGP spent
   },
 };
 
 // Calculate tier based on points
 function calculateTier(points: number): string {
-  if (points >= 1000) return 'PLATINUM';
-  if (points >= 500) return 'GOLD';
-  if (points >= 100) return 'SILVER';
+  if (points >= 100) return 'PLATINUM';
+  if (points >= 50) return 'GOLD';
+  if (points >= 20) return 'SILVER';
   return 'BRONZE';
 }
 
@@ -39,7 +39,7 @@ const redeemPointsSchema = z.object({
 // Schema for adjusting points
 const adjustPointsSchema = z.object({
   customerId: z.string().min(1),
-  points: z.number().int(), // Can be positive or negative
+  points: z.number(), // Can be positive or negative, including decimals
   notes: z.string().optional(),
 });
 
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     if (action === 'earn') {
       const validatedData = earnPointsSchema.parse(body);
-      const points = Math.floor(validatedData.amount * LOYALTY_CONFIG.pointsPerCurrency);
+      const points = validatedData.amount * LOYALTY_CONFIG.pointsPerCurrency;
 
       if (points <= 0) {
         return NextResponse.json(

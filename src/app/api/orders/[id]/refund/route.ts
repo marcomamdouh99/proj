@@ -136,6 +136,61 @@ export async function POST(
         },
       });
 
+      // Update customer statistics (deduct points and total spent)
+      if (order.customerId) {
+        const pointsToDeduct = Math.floor(order.subtotal);
+
+        await tx.customer.update({
+          where: { id: order.customerId },
+          data: {
+            totalSpent: {
+              decrement: order.subtotal,
+            },
+            orderCount: {
+              decrement: 1,
+            },
+            loyaltyPoints: {
+              decrement: pointsToDeduct,
+            },
+          },
+        });
+
+        // Create loyalty transaction for refund
+        await tx.loyaltyTransaction.create({
+          data: {
+            customerId: order.customerId,
+            points: -pointsToDeduct,
+            type: 'REDEEMED',
+            orderId: order.id,
+            amount: order.subtotal,
+            notes: `Refund for order #${order.orderNumber}`,
+          },
+        });
+
+        // Update customer tier based on new total spent
+        const updatedCustomer = await tx.customer.findUnique({
+          where: { id: order.customerId },
+        });
+
+        if (updatedCustomer) {
+          let newTier = 'BRONZE';
+          if (updatedCustomer.totalSpent >= 1000) {
+            newTier = 'PLATINUM';
+          } else if (updatedCustomer.totalSpent >= 500) {
+            newTier = 'GOLD';
+          } else if (updatedCustomer.totalSpent >= 200) {
+            newTier = 'SILVER';
+          }
+
+          if (updatedCustomer.tier !== newTier) {
+            await tx.customer.update({
+              where: { id: order.customerId },
+              data: { tier: newTier },
+            });
+          }
+        }
+      }
+
       return updatedOrder;
     });
 

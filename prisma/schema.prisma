@@ -589,7 +589,7 @@ model Customer {
   email      String?
   notes      String?
   branchId   String?
-  loyaltyPoints Int @default(0)
+  loyaltyPoints Float @default(0)
   tier       String  @default("BRONZE") // BRONZE, SILVER, GOLD, PLATINUM
   totalSpent Float  @default(0)
   orderCount Int    @default(0)
@@ -809,7 +809,7 @@ enum WasteReason {
 model LoyaltyTransaction {
   id          String              @id @default(cuid())
   customerId  String
-  points      Int                 // Positive for earned, negative for redeemed
+  points      Float               // Positive for earned, negative for redeemed
   type        LoyaltyTransactionType
   orderId     String?
   amount      Float?              // Order amount for earning points

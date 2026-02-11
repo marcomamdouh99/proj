@@ -113,7 +113,20 @@ export default function LoyaltyProgram() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        // Update selected customer with new data
+        if (data.customer) {
+          setSelectedCustomer(data.customer);
+        } else if (selectedCustomer && data.totalPoints !== undefined) {
+          // Fallback: update just the points if customer not in response
+          setSelectedCustomer({
+            ...selectedCustomer,
+            loyaltyPoints: data.totalPoints,
+            tier: data.tier || selectedCustomer.tier,
+          });
+        }
         fetchLoyaltyInfo(selectedCustomer.id);
+        fetchCustomers(); // Refresh the customers list
         setIsAdjustDialogOpen(false);
         setPoints(0);
         setNotes('');
@@ -128,9 +141,9 @@ export default function LoyaltyProgram() {
   };
 
   // Calculate stats
-  const totalPoints = customers.reduce((sum, c) => sum + c.loyaltyPoints, 0);
+  const totalPoints = customers.reduce((sum, c) => sum + (c.loyaltyPoints || 0), 0);
   const tierCounts = customers.reduce((acc, c) => {
-    acc[c.tier] = (acc[c.tier] || 0) + 1;
+    acc[c.tier || 'BRONZE'] = (acc[c.tier || 'BRONZE'] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
@@ -157,7 +170,7 @@ export default function LoyaltyProgram() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600">Total Points Issued</p>
-                <p className="text-2xl font-bold text-emerald-600">{totalPoints.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-emerald-600">{totalPoints.toFixed(2)}</p>
               </div>
               <div className="p-3 bg-yellow-100 rounded-full">
                 <Star className="h-6 w-6 text-yellow-600" />
@@ -188,7 +201,7 @@ export default function LoyaltyProgram() {
               <div>
                 <p className="text-sm text-slate-600">Total Spent</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  ${customers.reduce((sum, c) => sum + c.totalSpent, 0).toFixed(2)}
+                  ${customers.reduce((sum, c) => sum + (c.totalSpent || 0), 0).toFixed(2)}
                 </p>
               </div>
               <div className="p-3 bg-emerald-100 rounded-full">
@@ -252,18 +265,18 @@ export default function LoyaltyProgram() {
                       <TableCell className="font-medium">{customer.name}</TableCell>
                       <TableCell>{customer.phone}</TableCell>
                       <TableCell>
-                        <Badge className={TIER_COLORS[customer.tier] || 'bg-slate-100'}>
-                          {customer.tier}
+                        <Badge className={TIER_COLORS[customer.tier || 'BRONZE'] || 'bg-slate-100 text-slate-700 border-slate-300'}>
+                          {customer.tier || 'BRONZE'}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <span className="flex items-center gap-1">
                           <Star className="h-3 w-3 text-yellow-500" />
-                          {customer.loyaltyPoints.toLocaleString()}
+                          {(customer.loyaltyPoints || 0).toFixed(2)}
                         </span>
                       </TableCell>
-                      <TableCell>${customer.totalSpent.toFixed(2)}</TableCell>
-                      <TableCell>{customer.orderCount}</TableCell>
+                      <TableCell>${(customer.totalSpent || 0).toFixed(2)}</TableCell>
+                      <TableCell>{customer.orderCount || 0}</TableCell>
                       <TableCell className="text-right">
                         <Button size="sm" variant="outline" onClick={() => handleSelectCustomer(customer)}>
                           View Details
@@ -291,24 +304,24 @@ export default function LoyaltyProgram() {
                   <h3 className="text-lg font-semibold">{selectedCustomer.name}</h3>
                   <p className="text-sm text-slate-500">{selectedCustomer.phone}</p>
                 </div>
-                <Badge className={TIER_COLORS[selectedCustomer.tier]}>
+                <Badge className={TIER_COLORS[selectedCustomer.tier || 'BRONZE'] || 'bg-slate-100 text-slate-700 border-slate-300'}>
                   <Trophy className="h-3 w-3 mr-1" />
-                  {selectedCustomer.tier}
+                  {selectedCustomer.tier || 'BRONZE'}
                 </Badge>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-3 bg-slate-50 rounded-lg text-center">
                   <p className="text-sm text-slate-600">Current Points</p>
-                  <p className="text-xl font-bold text-emerald-600">{selectedCustomer.loyaltyPoints.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-emerald-600">{(selectedCustomer.loyaltyPoints || 0).toFixed(2)}</p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg text-center">
                   <p className="text-sm text-slate-600">Points Value</p>
-                  <p className="text-xl font-bold text-slate-900">${loyaltyInfo.pointsValue.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-slate-900">${(loyaltyInfo?.pointsValue || 0).toFixed(2)}</p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-lg text-center">
                   <p className="text-sm text-slate-600">Total Spent</p>
-                  <p className="text-xl font-bold text-slate-900">${selectedCustomer.totalSpent.toFixed(2)}</p>
+                  <p className="text-xl font-bold text-slate-900">${(selectedCustomer.totalSpent || 0).toFixed(2)}</p>
                 </div>
               </div>
 
@@ -326,14 +339,14 @@ export default function LoyaltyProgram() {
                     {loyaltyInfo.transactions.map((tx: LoyaltyTransaction) => (
                       <div key={tx.id} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                         <div>
-                          <Badge className={TYPE_COLORS[tx.type]}>{tx.type}</Badge>
+                          <Badge className={TYPE_COLORS[tx.type] || 'bg-slate-100 text-slate-700'}>{tx.type}</Badge>
                           {tx.notes && <span className="ml-2 text-sm text-slate-500">{tx.notes}</span>}
                         </div>
                         <div className="text-right">
-                          <p className={`font-medium ${tx.points > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {tx.points > 0 ? '+' : ''}{tx.points}
+                          <p className={`font-medium ${(tx.points || 0) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {(tx.points || 0) > 0 ? '+' : ''}{(tx.points || 0).toFixed(2)}
                           </p>
-                          <p className="text-xs text-slate-400">{new Date(tx.createdAt).toLocaleDateString()}</p>
+                          <p className="text-xs text-slate-400">{tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : 'N/A'}</p>
                         </div>
                       </div>
                     ))}
@@ -364,8 +377,9 @@ export default function LoyaltyProgram() {
               <Label>Points to Add/Remove</Label>
               <Input
                 type="number"
+                step="0.1"
                 value={points}
-                onChange={(e) => setPoints(parseInt(e.target.value) || 0)}
+                onChange={(e) => setPoints(parseFloat(e.target.value) || 0)}
                 placeholder="Positive to add, negative to remove"
               />
             </div>

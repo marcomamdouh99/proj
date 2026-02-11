@@ -502,16 +502,19 @@ export default function POSInterface() {
         cashierId: user?.id,
       };
 
+      // Add customer data for all order types (not just delivery)
+      if (selectedAddress) {
+        orderData.customerId = selectedAddress.customerId;
+        orderData.customerPhone = selectedAddress.customerPhone;
+        orderData.customerName = selectedAddress.customerName;
+        orderData.customerAddressId = selectedAddress.id;
+      }
+
+      // Add delivery-specific fields
       if (orderType === 'delivery') {
         orderData.deliveryAddress = deliveryAddress;
         orderData.deliveryAreaId = deliveryArea;
         orderData.deliveryFee = deliveryFee;
-        if (selectedAddress) {
-          orderData.customerId = selectedAddress.customerId;
-          orderData.customerPhone = selectedAddress.customerPhone;
-          orderData.customerName = selectedAddress.customerName;
-          orderData.customerAddressId = selectedAddress.id;
-        }
         if (selectedCourierId && selectedCourierId !== 'none') {
           orderData.courierId = selectedCourierId;
         }
@@ -535,8 +538,9 @@ export default function POSInterface() {
       setShowReceipt(true);
       setDeliveryAddress('');
       setDeliveryArea('');
-      setSelectedAddress(null);
       setSelectedCourierId('none');
+      // Clear customer selection for all order types
+      setSelectedAddress(null);
     } catch (error) {
       console.error('Checkout error:', error);
       alert(error instanceof Error ? error.message : 'Failed to process order');
@@ -921,7 +925,36 @@ export default function POSInterface() {
         </ScrollArea>
         </div>
 
-        {/* Delivery Section */}
+        {/* Customer Section - Available for All Order Types */}
+        <div className="p-5 border-t border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 dark:from-emerald-950/20 dark:to-teal-950/20">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+              <User className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-700 dark:text-emerald-400">Customer</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Link customer to earn loyalty points</p>
+            </div>
+          </div>
+          <CustomerSearch
+            onAddressSelect={setSelectedAddress}
+            selectedAddress={selectedAddress}
+            deliveryAreas={deliveryAreas}
+            branchId={user?.role === 'ADMIN' ? selectedBranch : user?.branchId}
+          />
+          {selectedAddress && (
+            <div className="mt-3 p-3 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-emerald-200 dark:border-emerald-800">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+                <span className="text-slate-700 dark:text-slate-300">
+                  <strong>{selectedAddress.customerName}</strong> - {selectedAddress.customerPhone}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Delivery Section - Only for Delivery Orders */}
         {orderType === 'delivery' && (
           <div className="p-5 border-t border-slate-200/50 dark:border-slate-800/50 bg-gradient-to-br from-amber-50/80 to-orange-50/80 dark:from-amber-950/20 dark:to-orange-950/20">
             <div className="flex items-center gap-3 mb-4">
@@ -930,13 +963,7 @@ export default function POSInterface() {
               </div>
               <h3 className="text-sm font-bold text-amber-700 dark:text-amber-400">Delivery Information</h3>
             </div>
-            <CustomerSearch
-              onAddressSelect={setSelectedAddress}
-              selectedAddress={selectedAddress}
-              deliveryAreas={deliveryAreas}
-              branchId={user?.role === 'ADMIN' ? selectedBranch : user?.branchId}
-            />
-            <div className="mt-4 space-y-3">
+            <div className="space-y-3">
               <div>
                 <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Delivery Address</Label>
                 <Textarea

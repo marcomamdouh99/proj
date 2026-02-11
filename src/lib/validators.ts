@@ -16,12 +16,13 @@ export const orderCreateSchema = z.object({
   paymentMethod: z.enum(['cash', 'card', 'digital_wallet']),
   orderType: z.enum(['dine-in', 'take-away', 'delivery']).default('dine-in'),
   deliveryAddress: z.string().max(500).optional(),
-  deliveryAreaId: cuidSchema.optional(),
+  deliveryAreaId: z.string().min(1).regex(/^[a-z0-9-_]+$/).optional(), // Allow hyphens and underscores
   deliveryFee: z.number().min(0).optional(),
-  customerId: cuidSchema.optional(),
-  customerAddressId: cuidSchema.optional(),
+  customerId: z.string().min(1).optional(), // Accept any valid string, not just CUID
+  customerAddressId: z.string().min(1).optional(), // Accept any valid string, not just CUID
   customerPhone: z.string().regex(/^[0-9+ ]{6,14}$/).optional(),
   customerName: z.string().max(100).optional(),
+  courierId: z.string().min(1).optional(), // Accept any valid string, not just CUID
   orderNumber: z.number().int().positive().optional()
 }).passthrough() // Allow extra fields like subtotal, total, taxRate
 
