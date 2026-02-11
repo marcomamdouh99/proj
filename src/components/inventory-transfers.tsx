@@ -303,7 +303,7 @@ export default function InventoryTransfers() {
 
   const canManageTransfer = (transfer: InventoryTransfer) => {
     if (user?.role === 'ADMIN') return true;
-    if (user?.role === 'BRANCH_MANAGER' && transfer.sourceBranchId === user.branchId) return true;
+    if (user?.role === 'BRANCH_MANAGER' && transfer.sourceBranch.id === user.branchId) return true;
     return false;
   };
 
@@ -573,10 +573,10 @@ export default function InventoryTransfers() {
                             <div className="p-4 bg-slate-50 rounded-lg">
                               <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
                                 <Package className="h-4 w-4" />
-                                Transfer Items ({transfer.items.length})
+                                Transfer Items ({(transfer.items || []).length})
                               </h4>
                               <div className="space-y-2">
-                                {transfer.items.map((item, idx) => (
+                                {(transfer.items || []).map((item, idx) => (
                                   <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-slate-200 last:border-0">
                                     <span className="font-medium">{item.ingredient?.name || item.ingredientId}</span>
                                     <div className="flex items-center gap-3">

@@ -34,15 +34,12 @@ interface Ingredient {
 interface WasteLog {
   id: string;
   branch: Branch;
-  items: Array<{
-    ingredient: Ingredient;
-    quantity: number;
-    unit: string;
-    cost: number;
-  }>;
-  reason: 'EXPIRED' | 'SPOILED' | 'DAMAGED' | 'PREPARATION_ERROR' | 'OTHER';
+  ingredient: Ingredient;
+  quantity: number;
+  unit: string;
+  reason: 'EXPIRED' | 'SPOILED' | 'DAMAGED' | 'PREPARATION' | 'MISTAKE' | 'THEFT' | 'OTHER';
   notes?: string;
-  totalLoss: number;
+  lossValue: number;
   createdAt: string;
 }
 
@@ -60,6 +57,16 @@ export default function WasteTracking() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [stats, setStats] = useState({ totalLogs: 0, totalLoss: 0, recentLoss: 0, recentLogs: 0 });
+
+  // Calculate recent logs from wasteLogs
+  useEffect(() => {
+    const recentLogsCount = wasteLogs.filter(log => {
+      const logDate = new Date(log.createdAt);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      return logDate >= sevenDaysAgo;
+    }).length;
+    setStats(prev => ({ ...prev, recentLogs: recentLogsCount }));
+  }, [wasteLogs]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
@@ -144,8 +151,14 @@ export default function WasteTracking() {
       }
       if (statsRes.ok) {
         const data = await statsRes.json();
-        console.log('Stats:', data.summary);
-        setStats(data.summary);
+        console.log('Stats:', data);
+        // Ensure stats has all required properties with default values
+        setStats({
+          totalLogs: data.summary?.totalLogs ?? 0,
+          totalLoss: data.summary?.totalLossValue ?? 0,
+          recentLoss: data.trends?.recent7Days ?? 0,
+          recentLogs: 0, // Will be calculated from wasteLogs
+        });
       } else {
         const errorText = await statsRes.text();
         console.error('Failed to fetch stats - Status:', statsRes.status, 'Response:', errorText);
@@ -166,8 +179,12 @@ export default function WasteTracking() {
         return 'bg-orange-100 text-orange-700';
       case 'DAMAGED':
         return 'bg-yellow-100 text-yellow-700';
-      case 'PREPARATION_ERROR':
+      case 'PREPARATION':
         return 'bg-blue-100 text-blue-700';
+      case 'MISTAKE':
+        return 'bg-purple-100 text-purple-700';
+      case 'THEFT':
+        return 'bg-red-200 text-red-800';
       case 'OTHER':
         return 'bg-slate-100 text-slate-700';
       default:
@@ -177,7 +194,7 @@ export default function WasteTracking() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Determine branch ID - use selected branch for admin, user's branch for managers
     let branchId = selectedBranchId;
     if (!branchId && user?.branchId) {
@@ -201,14 +218,12 @@ export default function WasteTracking() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           branchId,
+          ingredientId: formData.ingredientId,
+          quantity: formData.quantity,
+          unit: ingredient.unit,
           reason: formData.reason,
           notes: formData.notes,
-          items: [{
-            ingredientId: formData.ingredientId,
-            quantity: formData.quantity,
-            unit: ingredient.unit,
-            cost: formData.quantity * ingredient.costPerUnit,
-          }],
+          userId: user?.id,
         }),
       });
 
@@ -257,7 +272,7 @@ export default function WasteTracking() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600">Total Loss Value</p>
-                <p className="text-2xl font-bold text-red-600">${stats.totalLoss.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-red-600">${(stats.totalLoss || 0).toFixed(2)}</p>
               </div>
               <div className="p-3 bg-red-100 rounded-full">
                 <TrendingDown className="h-6 w-6 text-red-600" />
@@ -271,7 +286,7 @@ export default function WasteTracking() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-slate-600">Recent Loss (7d)</p>
-                <p className="text-2xl font-bold text-orange-600">${stats.recentLoss.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-orange-600">${(stats.recentLoss || 0).toFixed(2)}</p>
               </div>
               <div className="p-3 bg-orange-100 rounded-full">
                 <AlertTriangle className="h-6 w-6 text-orange-600" />
@@ -306,7 +321,7 @@ export default function WasteTracking() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Branches</SelectItem>
-                    {branches.map(b => (
+                    {branches?.map(b => (
                       <SelectItem key={b.id} value={b.id}>
                         {b.branchName}
                       </SelectItem>
@@ -344,7 +359,7 @@ export default function WasteTracking() {
                               <SelectValue placeholder="Select branch" />
                             </SelectTrigger>
                             <SelectContent>
-                              {branches.map(b => (
+                              {branches?.map(b => (
                                 <SelectItem key={b.id} value={b.id}>
                                   {b.branchName}
                                 </SelectItem>
@@ -365,7 +380,7 @@ export default function WasteTracking() {
                             <SelectValue placeholder="Select ingredient" />
                           </SelectTrigger>
                           <SelectContent>
-                            {ingredients.map(ing => (
+                            {(ingredients || []).map(ing => (
                               <SelectItem key={ing.id} value={ing.id}>
                                 {ing.name} ({ing.unit})
                               </SelectItem>
@@ -386,7 +401,7 @@ export default function WasteTracking() {
                       </div>
                       <div className="grid gap-2">
                         <Label>Reason *</Label>
-                        <Select 
+                        <Select
                           value={formData.reason}
                           onValueChange={(val: any) => setFormData({ ...formData, reason: val })}
                         >
@@ -397,7 +412,9 @@ export default function WasteTracking() {
                             <SelectItem value="EXPIRED">Expired</SelectItem>
                             <SelectItem value="SPOILED">Spoiled</SelectItem>
                             <SelectItem value="DAMAGED">Damaged</SelectItem>
-                            <SelectItem value="PREPARATION_ERROR">Preparation Error</SelectItem>
+                            <SelectItem value="PREPARATION">Preparation</SelectItem>
+                            <SelectItem value="MISTAKE">Mistake</SelectItem>
+                            <SelectItem value="THEFT">Theft</SelectItem>
                             <SelectItem value="OTHER">Other</SelectItem>
                           </SelectContent>
                         </Select>
@@ -430,7 +447,7 @@ export default function WasteTracking() {
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full"></div>
             </div>
-          ) : !selectedBranchId ? (
+          ) : !selectedBranchId && !isAdmin ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
               <Building2 className="h-12 w-12 mb-4 text-slate-400" />
               <p>Please select a branch to view waste logs</p>
@@ -438,7 +455,7 @@ export default function WasteTracking() {
           ) : wasteLogs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
               <Trash2 className="h-12 w-12 mb-4 text-slate-400" />
-              <p>No waste logs found for this branch</p>
+              <p>No waste logs found</p>
             </div>
           ) : (
             <ScrollArea className="h-[500px]">
@@ -462,14 +479,15 @@ export default function WasteTracking() {
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          {log.items.map((item, idx) => (
-                            <div key={idx} className="text-sm">
-                              <span className="font-medium">{item.ingredient.name}</span>
-                              <span className="text-slate-600 ml-2">
-                                {item.quantity} {item.unit}
-                              </span>
-                            </div>
-                          ))}
+                          <div className="text-sm">
+                            <span className="font-medium">{log.ingredient?.name || 'Unknown'}</span>
+                            <span className="text-slate-600 ml-2">
+                              {log.quantity} {log.unit}
+                            </span>
+                          </div>
+                          {log.notes && (
+                            <p className="text-xs text-slate-500">{log.notes}</p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -478,7 +496,7 @@ export default function WasteTracking() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-red-600 font-medium">
-                        ${log.totalLoss.toFixed(2)}
+                        ${(log.lossValue || 0).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   ))}
