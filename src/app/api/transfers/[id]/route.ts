@@ -1,3 +1,4 @@
+// Inventory Transfers ID API
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { z } from 'zod';
@@ -11,11 +12,12 @@ const updateTransferSchema = z.object({
 // GET /api/transfers/[id] - Get a single transfer
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const transfer = await db.inventoryTransfer.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         sourceBranch: true,
         targetBranch: true,
@@ -58,15 +60,16 @@ export async function GET(
 // PUT /api/transfers/[id] - Update a transfer
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const validatedData = updateTransferSchema.parse(body);
 
     // Check if transfer exists
     const existingTransfer = await db.inventoryTransfer.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         items: true,
       },
@@ -81,15 +84,29 @@ export async function PUT(
 
     let updateData: any = { ...validatedData };
 
+    // Get a valid user ID
+    let userId = body.userId;
+    if (!userId) {
+      const adminUser = await db.user.findFirst({
+        where: { role: 'ADMIN' },
+      });
+      if (adminUser) {
+        userId = adminUser.id;
+      } else {
+        const firstUser = await db.user.findFirst();
+        userId = firstUser?.id;
+      }
+    }
+
     // If approving, set approver and approvedAt
     if (validatedData.status === 'APPROVED' && !existingTransfer.approvedBy) {
-      updateData.approvedBy = body.userId || 'system';
+      updateData.approvedBy = userId;
       updateData.approvedAt = new Date();
     }
 
     // If completing, set completer and completedAt
     if (validatedData.status === 'COMPLETED' && !existingTransfer.completedBy) {
-      updateData.completedBy = body.userId || 'system';
+      updateData.completedBy = userId;
       updateData.completedAt = new Date();
     }
 
@@ -156,7 +173,7 @@ export async function PUT(
               stockBefore: sourceInventory.currentStock,
               stockAfter: sourceInventory.currentStock - item.quantity,
               reason: `Transfer to ${existingTransfer.targetBranchId} - ${existingTransfer.transferNumber}`,
-              createdBy: body.userId || 'system',
+              createdBy: userId || 'system',
             },
           });
         }
@@ -171,14 +188,14 @@ export async function PUT(
             stockBefore: targetInventory.currentStock - item.quantity,
             stockAfter: targetInventory.currentStock,
             reason: `Transfer from ${existingTransfer.sourceBranchId} - ${existingTransfer.transferNumber}`,
-            createdBy: body.userId || 'system',
+            createdBy: userId || 'system',
           },
         });
       }
     }
 
     const transfer = await db.inventoryTransfer.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         sourceBranch: true,
@@ -210,11 +227,12 @@ export async function PUT(
 // DELETE /api/transfers/[id] - Delete a transfer
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const transfer = await db.inventoryTransfer.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!transfer) {
@@ -232,7 +250,7 @@ export async function DELETE(
     }
 
     await db.inventoryTransfer.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: 'Transfer deleted successfully' });
