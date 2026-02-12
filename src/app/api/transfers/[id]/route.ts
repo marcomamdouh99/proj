@@ -71,7 +71,13 @@ export async function PUT(
     const existingTransfer = await db.inventoryTransfer.findUnique({
       where: { id },
       include: {
-        items: true,
+        items: {
+          include: {
+            ingredient: true,
+            sourceInventory: true,
+            targetInventory: true,
+          },
+        },
       },
     });
 
@@ -149,12 +155,12 @@ export async function PUT(
 
           // Deduct from source inventory
           const sourceInventory = await db.branchInventory.findUnique({
-            where: { id: item.sourceInventoryId },
+            where: { id: item.sourceInventory.id },
           });
 
           if (sourceInventory) {
             await db.branchInventory.update({
-              where: { id: item.sourceInventoryId },
+              where: { id: item.sourceInventory.id },
               data: {
                 currentStock: {
                   decrement: item.quantity,
