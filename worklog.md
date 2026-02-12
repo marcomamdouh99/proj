@@ -586,3 +586,46 @@ Test Verification:
 - After adding ingredients with stock → Should appear in Transaction History ✅
 - Refresh button → Reloads latest transactions ✅
 
+
+---
+Task ID: 10
+Agent: Z.ai Code
+Task: Fix Transfer Reason - Show Branch Names Instead of IDs
+
+Work Log:
+- **ISSUE IDENTIFIED**: Transfer Reason showing raw branch IDs
+  * User reported: Transaction History shows "Transfer to cml46do4q0000ob5g27kr"
+  * Expected: "Transfer to Airport - TR-123456789"
+  * Source transfer shows: "Transfer from cml46do4q0000ob5g27kr"
+  * Expected: "Transfer from Downtown - TR-123456789"
+
+- **ROOT CAUSE**: Using branchId instead of branchName
+  * File: /api/transfers/[id]/route.ts
+  * Line 175: `reason: \`Transfer to ${existingTransfer.targetBranchId}\``
+  * Line 190: `reason: \`Transfer from ${existingTransfer.sourceBranchId}\``
+  * Using raw branch IDs instead of human-readable names
+  * Transfer object already includes sourceBranch and targetBranch with names
+
+- **FIXED BOTH LINES**:
+  * Line 175: Changed to `existingTransfer.targetBranch.branchName`
+  * Line 190: Changed to `existingTransfer.sourceBranch.branchName`
+  * Now displays: "Transfer to Airport - TR-123456789"
+  * Now displays: "Transfer from Downtown - TR-123456789"
+
+- **PUSHED TO GITHUB**: Repository https://github.com/marcomamdouh99/proj.git
+
+Stage Summary:
+- Transfer reasons now show branch names instead of IDs
+- Transaction History displays readable transfer information
+- Users can clearly see source and target branches
+- Better audit trail for inventory movements
+- All transfer transactions properly documented
+
+Before Examples:
+❌ "Transfer to cml46do4q0000ob5g27kr - TR-123456789"
+❌ "Transfer from cml46do4q0000ob5g27kr - TR-123456789"
+
+After Examples:
+✅ "Transfer to Airport - TR-123456789"
+✅ "Transfer from Downtown - TR-123456789"
+

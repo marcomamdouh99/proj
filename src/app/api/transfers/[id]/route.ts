@@ -132,7 +132,7 @@ export async function PUT(
             },
           });
         } else {
-          targetInventory = await db.branchInventory.update({
+          const updatedTargetInventory = await db.branchInventory.update({
             where: { id: targetInventory.id },
             data: {
               currentStock: {
@@ -185,8 +185,8 @@ export async function PUT(
             ingredientId: item.ingredientId,
             transactionType: 'ADJUSTMENT',
             quantityChange: item.quantity,
-            stockBefore: targetInventory.currentStock - item.quantity,
-            stockAfter: targetInventory.currentStock,
+            stockBefore: updatedTargetInventory.currentStock - item.quantity,
+            stockAfter: updatedTargetInventory.currentStock,
             reason: `Transfer from ${existingTransfer.sourceBranch.branchName} - ${existingTransfer.transferNumber}`,
             createdBy: userId || 'system',
           },
