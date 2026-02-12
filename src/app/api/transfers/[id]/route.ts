@@ -110,7 +110,7 @@ export async function PUT(
       updateData.completedAt = new Date();
     }
 
-    // Process the transfer if status is COMPLETED
+    // Process transfer if status is COMPLETED
     if (validatedData.status === 'COMPLETED') {
       for (const item of existingTransfer.items) {
         // Find or create target inventory
@@ -128,7 +128,7 @@ export async function PUT(
             data: {
               branchId: existingTransfer.targetBranchId,
               ingredientId: item.ingredientId,
-              currentStock: item.quantity,
+              currentStock: 0,
             },
           });
         } else {
@@ -140,28 +140,28 @@ export async function PUT(
               },
             },
           });
-        }
 
-        // Update transfer item with target inventory ID
-        await db.inventoryTransferItem.update({
-          where: { id: item.id },
-          data: { targetInventoryId: targetInventory.id },
-        });
-
-        // Deduct from source inventory
-        const sourceInventory = await db.branchInventory.findUnique({
-          where: { id: item.sourceInventoryId },
-        });
-
-        if (sourceInventory) {
-          await db.branchInventory.update({
-            where: { id: item.sourceInventoryId },
-            data: {
-              currentStock: {
-                decrement: item.quantity,
-              },
-            },
+          // Update transfer item with target inventory ID
+          await db.inventoryTransferItem.update({
+            where: { id: item.id },
+            data: { targetInventoryId: targetInventory.id },
           });
+
+          // Deduct from source inventory
+          const sourceInventory = await db.branchInventory.findUnique({
+            where: { id: item.sourceInventoryId },
+          });
+
+          if (sourceInventory) {
+            await db.branchInventory.update({
+              where: { id: item.sourceInventoryId },
+              data: {
+                currentStock: {
+                  decrement: item.quantity,
+                },
+              },
+            });
+          }
 
           // Create inventory transaction for source (deduct)
           await db.inventoryTransaction.create({
@@ -176,10 +176,25 @@ export async function PUT(
               createdBy: userId || 'system',
             },
           });
+
+          // Create inventory transaction for target (add)
+          await db.inventoryTransaction.create({
+            data: {
+              branchId: existingTransfer.targetBranchId,
+              ingredientId: item.ingredientId,
+              transactionType: 'ADJUSTMENT',
+              quantityChange: item.quantity,
+              stockBefore: updatedTargetInventory.currentStock - item.quantity,
+              stockAfter: updatedTargetInventory.currentStock,
+              reason: `Transfer from ${existingTransfer.sourceBranch.branchName} - ${existingTransfer.transferNumber}`,
+              createdBy: userId || 'system',
+            },
+          });
         }
       }
+    }
 
-      const transfer = await db.inventoryTransfer.update({
+    const transfer = await db.inventoryTransfer.update({
       where: { id },
       data: updateData,
       include: {
