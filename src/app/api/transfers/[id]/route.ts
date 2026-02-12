@@ -71,6 +71,8 @@ export async function PUT(
     const existingTransfer = await db.inventoryTransfer.findUnique({
       where: { id },
       include: {
+        sourceBranch: true,
+        targetBranch: true,
         items: {
           include: {
             ingredient: true,
