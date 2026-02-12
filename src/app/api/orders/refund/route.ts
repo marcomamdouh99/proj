@@ -7,14 +7,39 @@ export async function POST(request: NextRequest) {
     const {
       orderId,
       reason,
-      userId,
+      username,
+      password,
     } = body;
 
     // Validate request
-    if (!orderId || !reason) {
+    if (!orderId || !reason || !username || !password) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields (orderId, reason, username, password)' },
         { status: 400 }
+      );
+    }
+
+    // Authenticate user with username AND password
+    const user = await db.user.findFirst({
+      where: {
+        username: username,
+        password: password, // In production, use hashed passwords
+        isActive: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid username or password' },
+        { status: 401 }
+      );
+    }
+
+    // Role-based authorization: Only ADMIN and BRANCH_MANAGER can process refunds
+    if (user.role !== 'ADMIN' && user.role !== 'BRANCH_MANAGER') {
+      return NextResponse.json(
+        { error: 'Only Administrators and Branch Managers can process refunds' },
+        { status: 403 }
       );
     }
 
@@ -23,6 +48,7 @@ export async function POST(request: NextRequest) {
       where: { id: orderId },
       include: {
         items: true,
+        branch: true,
       },
     });
 
@@ -40,6 +66,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Branch access control: ADMIN can refund any branch, BRANCH_MANAGER only their own
+    if (user.role === 'BRANCH_MANAGER' && order.branchId !== user.branchId) {
+      return NextResponse.json(
+        { error: 'You can only refund orders from your own branch' },
+        { status: 403 }
+      );
+    }
+
     // Process refund with inventory restoration
     await db.$transaction(async (tx) => {
       // Mark order as refunded
@@ -48,6 +82,9 @@ export async function POST(request: NextRequest) {
         data: {
           isRefunded: true,
           refundReason: reason,
+          refundedBy: user.id,
+          refundedAt: new Date(),
+          refundPaymentMethod: order.paymentMethod,
         },
       });
 
@@ -85,6 +122,7 @@ export async function POST(request: NextRequest) {
               data: {
                 currentStock: stockAfter,
                 lastModifiedAt: new Date(),
+                lastModifiedBy: user.id,
               },
             });
 
@@ -97,9 +135,10 @@ export async function POST(request: NextRequest) {
                 quantityChange: quantityToRestore,
                 stockBefore,
                 stockAfter,
-                orderId: orderId,
-                reason: `Refund for order: ${order.orderNumber}`,
-                createdBy: userId,
+                referenceId: orderId,
+                referenceType: 'ORDER',
+                notes: `Refund for order: ${order.orderNumber}`,
+                performedBy: user.id,
               },
             });
           }
@@ -108,8 +147,8 @@ export async function POST(request: NextRequest) {
 
       // Update customer statistics (deduct points and total spent)
       if (order.customerId) {
-        // Calculate points to deduct (1 point per 100 EGP spent = 0.01 points per EGP)
-        const pointsToDeduct = order.subtotal / 100;
+        // Calculate points to deduct (1 point per 1 EGP spent)
+        const pointsToDeduct = Math.floor(order.subtotal);
 
         await tx.customer.update({
           where: { id: order.customerId },
@@ -146,11 +185,11 @@ export async function POST(request: NextRequest) {
         if (updatedCustomer) {
           let newTier = 'BRONZE';
           // Update tier thresholds based on total spent (in EGP)
-          if (updatedCustomer.totalSpent >= 10000) {
+          if (updatedCustomer.totalSpent >= 1000) {
             newTier = 'PLATINUM';
-          } else if (updatedCustomer.totalSpent >= 5000) {
+          } else if (updatedCustomer.totalSpent >= 500) {
             newTier = 'GOLD';
-          } else if (updatedCustomer.totalSpent >= 2000) {
+          } else if (updatedCustomer.totalSpent >= 200) {
             newTier = 'SILVER';
           }
 
@@ -162,6 +201,22 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'ORDER_REFUND',
+          entityType: 'ORDER',
+          entityId: orderId,
+          details: {
+            orderNumber: order.orderNumber,
+            refundAmount: order.totalAmount,
+            refundReason: reason,
+          },
+          branchId: user.branchId || order.branchId,
+        },
+      });
     });
 
     return NextResponse.json({
