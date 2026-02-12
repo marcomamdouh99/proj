@@ -172,7 +172,7 @@ export async function PUT(
               quantityChange: -item.quantity,
               stockBefore: sourceInventory.currentStock,
               stockAfter: sourceInventory.currentStock - item.quantity,
-              reason: `Transfer to ${existingTransfer.targetBranchId} - ${existingTransfer.transferNumber}`,
+              reason: `Transfer to ${existingTransfer.targetBranch.branchName} - ${existingTransfer.transferNumber}`,
               createdBy: userId || 'system',
             },
           });
@@ -187,7 +187,7 @@ export async function PUT(
             quantityChange: item.quantity,
             stockBefore: targetInventory.currentStock - item.quantity,
             stockAfter: targetInventory.currentStock,
-            reason: `Transfer from ${existingTransfer.sourceBranchId} - ${existingTransfer.transferNumber}`,
+            reason: `Transfer from ${existingTransfer.sourceBranch.branchName} - ${existingTransfer.transferNumber}`,
             createdBy: userId || 'system',
           },
         });
