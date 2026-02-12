@@ -709,7 +709,7 @@ export default function MenuManagement() {
       category: '',
       categoryId: '',
       price: '',
-      taxRate: '0.14',
+      taxRate: '0',
       isActive: true,
       hasVariants: false,
     });
