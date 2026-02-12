@@ -78,13 +78,17 @@ export async function GET(request: NextRequest) {
 
     // Calculate dynamic product cost for each menu item and its variants
     const menuItemsWithCost = menuItems.map(item => {
-      // Calculate base product cost (from base recipes where menuItemVariantId is null)
+      // Calculate base product cost (only from base recipes where menuItemVariantId is null)
       const baseProductCost = item.recipes.reduce((total, recipe) => {
+        // Skip variant-specific recipes - only count base recipes
+        if (recipe.menuItemVariantId !== null) {
+          return total;
+        }
         const ingredientCost = recipe.quantityRequired * recipe.ingredient.costPerUnit;
         return total + ingredientCost;
       }, 0);
 
-      // Calculate profit and margin for base item
+      // Calculate profit and margin for base item (using base price)
       const profit = item.price - baseProductCost;
       const profitMargin = item.price > 0 ? (profit / item.price) * 100 : 0;
 
