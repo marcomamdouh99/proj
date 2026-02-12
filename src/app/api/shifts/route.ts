@@ -82,12 +82,13 @@ export async function GET(request: NextRequest) {
         }
 
         // For open shifts, calculate current revenue from orders
+        // Revenue = subtotal (excludes delivery fees which go to couriers)
         const currentOrders = await db.order.aggregate({
           where: {
             shiftId: shift.id,
           },
           _sum: {
-            totalAmount: true,
+            subtotal: true,
           },
           _count: true,
         });
@@ -106,21 +107,29 @@ export async function GET(request: NextRequest) {
           other: 0,
         };
 
-        paymentStats.forEach(stat => {
+        // Payment breakdown also excludes delivery fees
+        const orderPaymentStats = await db.order.groupBy({
+          by: ['paymentMethod'],
+          where: { shiftId: shift.id },
+          _sum: { subtotal: true },
+          _count: true,
+        });
+
+        orderPaymentStats.forEach(stat => {
           const method = stat.paymentMethod.toLowerCase();
           if (method === 'cash') {
-            paymentBreakdown.cash = stat._sum.totalAmount || 0;
+            paymentBreakdown.cash = stat._sum.subtotal || 0;
           } else if (method === 'card') {
-            paymentBreakdown.card = stat._sum.totalAmount || 0;
+            paymentBreakdown.card = stat._sum.subtotal || 0;
           } else {
-            paymentBreakdown.other = (paymentBreakdown.other || 0) + (stat._sum.totalAmount || 0);
+            paymentBreakdown.other = (paymentBreakdown.other || 0) + (stat._sum.subtotal || 0);
           }
         });
 
         return {
           ...shift,
           orderCount: currentOrders._count,
-          currentRevenue: currentOrders._sum.totalAmount || 0,
+          currentRevenue: currentOrders._sum.subtotal || 0,
           currentOrders: currentOrders._count,
           paymentBreakdown,
           _count: undefined,
@@ -173,6 +182,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get opening orders and revenue
+    // Revenue = subtotal (excludes delivery fees which go to couriers)
     const openingData = await db.order.aggregate({
       where: {
         cashierId,
@@ -180,7 +190,7 @@ export async function POST(request: NextRequest) {
       },
       _count: true,
       _sum: {
-        totalAmount: true,
+        subtotal: true,
       },
     });
 
@@ -190,7 +200,7 @@ export async function POST(request: NextRequest) {
         cashierId,
         openingCash: openingCash || 0,
         openingOrders: openingData._count || 0,
-        openingRevenue: openingData._sum.totalAmount || 0,
+        openingRevenue: openingData._sum.subtotal || 0,
         notes,
       },
       include: {

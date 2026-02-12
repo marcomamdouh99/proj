@@ -27,38 +27,8 @@ async function main() {
   })
   console.log('  ✅ Admin user created (username: admin, password: admin123)')
 
-  const manager = await db.user.upsert({
-    where: { username: 'manager1' },
-    update: {},
-    create: {
-      username: 'manager1',
-      email: 'manager.downtown@emperor.coffee',
-      passwordHash: managerPassword,
-      name: 'Downtown Manager',
-      role: 'BRANCH_MANAGER',
-      branchId: 'cml46do4q0000ob5g27krklqe',
-      isActive: true,
-    },
-  })
-  console.log('  ✅ Manager created (username: manager1, password: manager123)')
-
-  const cashier = await db.user.upsert({
-    where: { username: 'cashier1' },
-    update: {},
-    create: {
-      username: 'cashier1',
-      email: 'cashier.downtown@emperor.coffee',
-      passwordHash: cashierPassword,
-      name: 'Downtown Cashier',
-      role: 'CASHIER',
-      branchId: 'cml46do4q0000ob5g27krklqe',
-      isActive: true,
-    },
-  })
-  console.log('  ✅ Cashier created (username: cashier1, password: cashier123)\n')
-
   // ========================================
-  // 2. CREATE BRANCHES
+  // 2. CREATE BRANCHES (before users that reference them)
   // ========================================
   console.log('🏢 Creating branches...')
 
@@ -101,6 +71,37 @@ async function main() {
     },
   })
   console.log('  ✅ Airport branch created\n')
+
+  // Now create manager and cashier with valid branch IDs
+  const manager = await db.user.upsert({
+    where: { username: 'manager1' },
+    update: {},
+    create: {
+      username: 'manager1',
+      email: 'manager.downtown@emperor.coffee',
+      passwordHash: managerPassword,
+      name: 'Downtown Manager',
+      role: 'BRANCH_MANAGER',
+      branchId: 'cml46do4q0000ob5g27krklqe',
+      isActive: true,
+    },
+  })
+  console.log('  ✅ Manager created (username: manager1, password: manager123)')
+
+  const cashier = await db.user.upsert({
+    where: { username: 'cashier1' },
+    update: {},
+    create: {
+      username: 'cashier1',
+      email: 'cashier.downtown@emperor.coffee',
+      passwordHash: cashierPassword,
+      name: 'Downtown Cashier',
+      role: 'CASHIER',
+      branchId: 'cml46do4q0000ob5g27krklqe',
+      isActive: true,
+    },
+  })
+  console.log('  ✅ Cashier created (username: cashier1, password: cashier123)\n')
 
   // ========================================
   // 3. CREATE CATEGORIES
@@ -397,144 +398,55 @@ async function main() {
   // ========================================
   console.log('📝 Creating recipes...')
 
-  const recipeEspresso = await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: espressoItem.id,
-        ingredientId: espresso.id,
-        menuItemVariantId: null,
+  // Helper function to create or update recipe
+  async function createOrUpdateRecipe(menuItemId: string, ingredientId: string, quantity: number, unit: string, menuItemVariantId: string | null = null) {
+    // Check if recipe exists
+    const existing = await db.recipe.findFirst({
+      where: {
+        menuItemId,
+        ingredientId,
+        menuItemVariantId,
       },
-    },
-    update: {},
-    create: {
-      menuItemId: espressoItem.id,
-      ingredientId: espresso.id,
-      quantityRequired: 0.018,
-      unit: 'kg',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+    });
+
+    if (existing) {
+      await db.recipe.update({
+        where: { id: existing.id },
+        data: { quantityRequired: quantity, unit, version: 1 },
+      });
+    } else {
+      await db.recipe.create({
+        data: {
+          menuItemId,
+          ingredientId,
+          quantityRequired: quantity,
+          unit,
+          menuItemVariantId,
+          version: 1,
+        },
+      });
+    }
+  }
+
+  await createOrUpdateRecipe(espressoItem.id, espresso.id, 0.018, 'kg');
   console.log('  ✅ Espresso recipe created')
 
-  const recipeAmericano = await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: americano.id,
-        ingredientId: espresso.id,
-        menuItemVariantId: null,
-      },
-    },
-    update: {},
-    create: {
-      menuItemId: americano.id,
-      ingredientId: espresso.id,
-      quantityRequired: 0.018,
-      unit: 'kg',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+  await createOrUpdateRecipe(americano.id, espresso.id, 0.018, 'kg');
   console.log('  ✅ Americano recipe created')
 
-  const recipeLatte = await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: latte.id,
-        ingredientId: espresso.id,
-        menuItemVariantId: null,
-      },
-    },
-    update: {},
-    create: {
-      menuItemId: latte.id,
-      ingredientId: espresso.id,
-      quantityRequired: 0.018,
-      unit: 'kg',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+  await createOrUpdateRecipe(latte.id, espresso.id, 0.018, 'kg');
   console.log('  ✅ Latte recipe (espresso) created')
 
-  await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: latte.id,
-        ingredientId: milk.id,
-        menuItemVariantId: null,
-      },
-    },
-    update: {},
-    create: {
-      menuItemId: latte.id,
-      ingredientId: milk.id,
-      quantityRequired: 0.2,
-      unit: 'L',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+  await createOrUpdateRecipe(latte.id, milk.id, 0.2, 'L');
   console.log('  ✅ Latte recipe (milk) created')
 
-  await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: latte.id,
-        ingredientId: syrup.id,
-        menuItemVariantId: null,
-      },
-    },
-    update: {},
-    create: {
-      menuItemId: latte.id,
-      ingredientId: syrup.id,
-      quantityRequired: 0.015,
-      unit: 'L',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+  await createOrUpdateRecipe(latte.id, syrup.id, 0.015, 'L');
   console.log('  ✅ Latte recipe (syrup) created')
 
-  const recipeMocha = await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: mocha.id,
-        ingredientId: espresso.id,
-        menuItemVariantId: null,
-      },
-    },
-    update: {},
-    create: {
-      menuItemId: mocha.id,
-      ingredientId: espresso.id,
-      quantityRequired: 0.018,
-      unit: 'kg',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+  await createOrUpdateRecipe(mocha.id, espresso.id, 0.018, 'kg');
   console.log('  ✅ Mocha recipe (espresso) created')
 
-  await db.recipe.upsert({
-    where: {
-      menuItemId_ingredientId_menuItemVariantId: {
-        menuItemId: mocha.id,
-        ingredientId: chocolate.id,
-        menuItemVariantId: null,
-      },
-    },
-    update: {},
-    create: {
-      menuItemId: mocha.id,
-      ingredientId: chocolate.id,
-      quantityRequired: 0.015,
-      unit: 'kg',
-      menuItemVariantId: null,
-      version: 1,
-    },
-  })
+  await createOrUpdateRecipe(mocha.id, chocolate.id, 0.015, 'kg');
   console.log('  ✅ Mocha recipe (chocolate) created\n')
 
   // ========================================

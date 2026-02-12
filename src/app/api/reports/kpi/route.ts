@@ -157,8 +157,11 @@ export async function GET(request: NextRequest) {
     // Payment method breakdown
     const paymentMethods = mainOrders.reduce((acc: any, order) => {
       const method = order.paymentMethod || 'cash';
-      acc[method] = (acc[method] || 0) + 1;
-      acc[`${method}_revenue`] = (acc[`${method}_revenue`] || 0) + order.subtotal;
+      if (!acc[method]) {
+        acc[method] = { count: 0, revenue: 0 };
+      }
+      acc[method].count += 1;
+      acc[method].revenue += order.subtotal;
       return acc;
     }, {});
 

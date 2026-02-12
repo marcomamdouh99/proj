@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Pencil, Trash2, DollarSign, TrendingDown, Building2, Zap, Wifi, Flame, Users, Wrench, Package, Megaphone, MoreHorizontal, Calendar, TrendingUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, DollarSign, TrendingDown, Building2, Zap, Wifi, Flame, Users, Wrench, Package, Megaphone, MoreHorizontal, Calendar, TrendingUp, Tag } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import NetProfitReport from '@/components/reports-net-profit';
 
@@ -46,6 +46,14 @@ interface CostFormData {
   amount: string;
   period: string;
   notes: string;
+}
+
+interface CategoryFormData {
+  name: string;
+  description: string;
+  icon: string;
+  sortOrder: string;
+  isActive: boolean;
 }
 
 interface SummaryData {
@@ -93,6 +101,17 @@ export default function CostManagement() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  
+  // Category management state
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<CostCategory | null>(null);
+  const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
+    name: '',
+    description: '',
+    icon: '',
+    sortOrder: '',
+    isActive: true,
+  });
 
   // Get current period (YYYY-MM)
   const getCurrentPeriod = () => {
@@ -291,6 +310,93 @@ export default function CostManagement() {
     setMessage(null);
   };
 
+  // Category management functions
+  const handleCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const url = editingCategory 
+        ? `/api/cost-categories/${editingCategory.id}` 
+        : '/api/cost-categories';
+      const method = editingCategory ? 'POST' : 'POST'; // Using POST with _method=PATCH for edit
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...categoryFormData,
+          ...(editingCategory && { _method: 'PATCH' }),
+          sortOrder: categoryFormData.sortOrder ? parseInt(categoryFormData.sortOrder) : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to save category' });
+        return;
+      }
+
+      setCategoryDialogOpen(false);
+      resetCategoryForm();
+      await fetchCostCategories();
+      setMessage({ type: 'success', text: editingCategory ? 'Category updated successfully!' : 'Category added successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Failed to save category:', error);
+      setMessage({ type: 'error', text: 'Failed to save category' });
+    }
+  };
+
+  const handleEditCategory = (category: CostCategory) => {
+    setEditingCategory(category);
+    setCategoryFormData({
+      name: category.name,
+      description: category.description || '',
+      icon: category.icon || '',
+      sortOrder: category.sortOrder?.toString() || '',
+      isActive: category.isActive !== undefined ? category.isActive : true,
+    });
+    setCategoryDialogOpen(true);
+    setMessage(null);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    try {
+      const response = await fetch(`/api/cost-categories/${categoryId}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete category' });
+        return;
+      }
+
+      await fetchCostCategories();
+      setMessage({ type: 'success', text: 'Category deleted successfully!' });
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      setMessage({ type: 'error', text: 'Failed to delete category' });
+    }
+  };
+
+  const resetCategoryForm = () => {
+    setCategoryFormData({
+      name: '',
+      description: '',
+      icon: '',
+      sortOrder: '',
+      isActive: true,
+    });
+    setEditingCategory(null);
+    setMessage(null);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -412,6 +518,89 @@ export default function CostManagement() {
         </Card>
       )}
 
+      {/* Category Management */}
+      <Card className="border-emerald-200 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Tag className="h-5 w-5 text-emerald-700" />
+            Cost Categories
+          </CardTitle>
+          <CardDescription>Manage cost categories for better organization</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[300px] border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Icon</TableHead>
+                  <TableHead>Sort Order</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {costCategories.map((category) => {
+                  const Icon = getIcon(category.icon);
+                  return (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {category.description || '-'}
+                      </TableCell>
+                      <TableCell>
+                        {category.icon && (
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-slate-600" />
+                            <span className="text-xs text-slate-500">{category.icon}</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {category.sortOrder || 0}
+                      </TableCell>
+                      <TableCell>
+                        {category.isActive ? (
+                          <Badge className="bg-emerald-600">Active</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-500">Inactive</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEditCategory(category)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDeleteCategory(category.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {costCategories.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                      No categories found. Add your first category above.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
       {/* Main Cost Management */}
       <Card className="border-[#C7A35A]/20 shadow-xl">
         <CardHeader>
@@ -423,14 +612,92 @@ export default function CostManagement() {
               </CardTitle>
               <CardDescription>Manage operational costs for each branch</CardDescription>
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-[#C7A35A] to-[#b88e3b] hover:from-[#b88e3b] hover:to-[#C7A35A] text-white">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Cost
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+            <div className="flex items-center gap-2">
+              <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="border-emerald-600 text-emerald-600 hover:bg-emerald-50">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Category
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>{editingCategory ? 'Edit Category' : 'Add New Category'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCategorySubmit}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="categoryName">Category Name *</Label>
+                    <Input
+                      id="categoryName"
+                      type="text"
+                      placeholder="e.g., Rent, Utilities"
+                      value={categoryFormData.name}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="categoryDescription">Description</Label>
+                    <Textarea
+                      id="categoryDescription"
+                      placeholder="Optional description..."
+                      value={categoryFormData.description}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, description: e.target.value })}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="categoryIcon">Icon (Optional)</Label>
+                    <Input
+                      id="categoryIcon"
+                      type="text"
+                      placeholder="e.g., Building2, Shield, Zap"
+                      value={categoryFormData.icon}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, icon: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sortOrder">Sort Order</Label>
+                    <Input
+                      id="sortOrder"
+                      type="number"
+                      placeholder="0"
+                      value={categoryFormData.sortOrder}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, sortOrder: e.target.value })}
+                      min="0"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isActive"
+                      checked={categoryFormData.isActive}
+                      onChange={(e) => setCategoryFormData({ ...categoryFormData, isActive: e.target.checked })}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor="isActive" className="text-sm">Active</Label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="bg-gradient-to-r from-[#C7A35A] to-[#b88e3b] hover:from-[#b88e3b] hover:to-[#C7A35A] text-white">
+                    {editingCategory ? 'Update Category' : 'Add Category'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-to-r from-[#C7A35A] to-[#b88e3b] hover:from-[#b88e3b] hover:to-[#C7A35A] text-white">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Cost
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                   <DialogTitle>{editingCost ? 'Edit Cost' : 'Add New Cost'}</DialogTitle>
                 </DialogHeader>
@@ -551,6 +818,7 @@ export default function CostManagement() {
                 </form>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

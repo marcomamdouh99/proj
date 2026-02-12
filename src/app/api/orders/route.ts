@@ -493,7 +493,13 @@ export async function GET(request: NextRequest) {
       take: limit,
       skip: offset,
       include: {
-        items: true,
+        items: {
+          include: {
+            menuItem: {
+              select: { id: true, name: true, category: true, price: true },
+            },
+          },
+        },
         cashier: {
           select: { username: true, name: true },
         },

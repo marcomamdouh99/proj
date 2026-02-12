@@ -59,6 +59,14 @@ export async function POST(
       );
     }
 
+    // Role-based authorization: Only ADMIN and BRANCH_MANAGER can process refunds
+    if (user.role !== 'ADMIN' && user.role !== 'BRANCH_MANAGER') {
+      return NextResponse.json(
+        { success: false, error: 'Only Administrators and Branch Managers can process refunds' },
+        { status: 403 }
+      );
+    }
+
     // Branch access control: ADMIN can refund any branch, BRANCH_MANAGER only their own
     if (user.role === 'BRANCH_MANAGER' && order.branchId !== user.branchId) {
       return NextResponse.json(

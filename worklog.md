@@ -154,3 +154,204 @@ Note: All React key warnings should now be resolved with fresh server cache
 
 
 
+---
+Task ID: 2
+Agent: Z.ai Code
+Task: Fix Revenue Calculation to Exclude Delivery Fees & Seed Database with Test Credentials
+
+Work Log:
+- **ISSUE IDENTIFIED**: Delivery fees were being included in shift revenue calculations
+  * Shift opening/closing used `totalAmount` which includes deliveryFee
+  * Payment breakdown also included delivery fees
+  * Delivery fees go to couriers, not the store/cashier
+  * Sales/KPI reports were already correct (using `subtotal`)
+
+- **FIXED /api/shifts/route.ts**:
+  * GET endpoint: Changed `currentRevenue` calculation from `totalAmount` to `subtotal`
+  * GET endpoint: Fixed payment breakdown to use `subtotal` instead of `totalAmount`
+  * POST endpoint: Changed `openingRevenue` calculation from `totalAmount` to `subtotal`
+  * Added comments explaining revenue = subtotal (excludes delivery fees)
+
+- **FIXED /api/shifts/[id]/route.ts**:
+  * Close shift function: Changed `closingRevenue` calculation from `totalAmount` to `subtotal`
+  * Fixed payment breakdown to use `subtotal` instead of `totalAmount`
+  * Updated console logs to reflect correct revenue calculation
+  * Added comments explaining revenue excludes delivery fees
+
+- **FIXED prisma/seed.ts**:
+  * Reordered operations to create branches before users (fixes foreign key constraint error)
+  * Replaced recipe upsert with helper function using findFirst + create/update
+  * Workaround for Prisma validation issue with null menuItemVariantId
+
+- **RAN DATABASE SEED**:
+  * Created 3 users: admin, manager1, cashier1
+  * Created 2 branches: Downtown, Airport
+  * Created 4 categories
+  * Created 5 ingredients with initial stock
+  * Created 9 menu items
+  * Created 7 recipes
+  * Created branch inventory for both branches
+  * Created 2 delivery areas (City Center, Suburbs)
+  * Created 3 cost categories (Rent, Utilities, Salaries)
+
+Stage Summary:
+- Revenue calculations now correctly exclude delivery fees
+- Opening shift revenue uses subtotal (excludes delivery fees)
+- Closing shift revenue uses subtotal (excludes delivery fees)
+- Payment breakdowns also exclude delivery fees
+- Database seeded with complete test data
+- Login credentials ready for testing
+
+Test Login Credentials:
+- **Admin**: admin / admin123 (HQ Admin - full access)
+- **Manager**: manager1 / manager123 (Branch Manager - Downtown branch)
+- **Cashier**: cashier1 / cashier123 (Cashier - Downtown branch)
+
+Key Financial Changes:
+- OLD: Revenue = totalAmount (includes delivery fees) ❌
+- NEW: Revenue = subtotal (excludes delivery fees) ✅
+- This ensures couriers receive full delivery fees
+- Store/cashier revenue accurately reflects product sales only
+
+
+---
+Task ID: 3
+Agent: Z.ai Code
+Task: Fix Reports Dashboard - Overview Tab & Sales Orders Detail
+
+Work Log:
+- **ISSUE 1 IDENTIFIED**: Overview Tab sections not displaying correctly
+  * Top Performing Categories - Uses kpiData.topCategories
+  * Revenue by product category - Same as above
+  * Payment Methods / Transaction breakdown - Uses kpiData.paymentMethods
+  * API was returning wrong data structure for paymentMethods
+
+- **FIXED /api/reports/kpi/route.ts - Payment Methods Structure**:
+  * OLD: { cash: 5, card: 3, cash_revenue: 100, card_revenue: 60 } (flat structure)
+  * NEW: { cash: { count: 5, revenue: 100 }, card: { count: 3, revenue: 60 } } (nested object structure)
+  * Changed paymentMethods reduce function to initialize each method with { count: 0, revenue: 0 }
+  * Now properly accumulates count and revenue in separate properties
+
+- **ISSUE 2 IDENTIFIED**: Sales Orders detail dialog not showing proper item information
+  * Order dialog was already implemented with Eye button
+  * But items didn't include menuItem data (name, category, price)
+  * Component was trying to access item.name which didn't exist
+
+- **FIXED /api/orders/route.ts - Include menuItem in Orders GET**:
+  * Added menuItem relation to items include in GET endpoint
+  * Now returns: items: { menuItem: { id, name, category, price } }
+  * Allows proper display of item names and details in order dialog
+
+- **FIXED /src/components/reports-dashboard.tsx - Order Interface & Dialog**:
+  * Updated Order interface to properly type items with menuItem relationship
+  * Changed item.name to item.menuItem?.name || item.itemName (fallback for compatibility)
+  * Added proper type definition for menuItem: { id, name, category, price }
+
+Stage Summary:
+- Overview Tab - Payment Methods now displays correctly with count and revenue
+- Overview Tab - Top Categories now displays correctly (was working, data flows properly now)
+- Overview Tab - Transaction breakdown now working (same as Payment Methods fix)
+- Sales & Refunds - Order detail dialog now shows full item information:
+  - Item names from menuItem.name
+  - Quantities
+  - Unit prices
+  - Category info available if needed
+- All reports sections now functioning as expected
+
+
+---
+Task ID: 4
+Agent: Z.ai Code
+Task: Add Category Management to Costs Tab
+
+Work Log:
+- **ISSUE IDENTIFIED**: User wanted "Add Category" button next to "Add Cost" button
+  * No way to create new cost categories - only existing categories
+  * Categories were being fetched but no UI to manage them
+
+- **ADDED API ENDPOINTS** (/api/cost-categories/route.ts):
+  * Added Zod validation schema for category data
+  * POST endpoint: Create new cost categories
+  * PATCH endpoint: Update existing categories
+  * DELETE endpoint: Delete categories (with check for usage in costs)
+  * Added /api/cost-categories/[id]/route.ts for Next.js 16 routing
+  * Both PATCH and DELETE methods support gateway via POST with _method=PATCH
+
+- **ADDED STATE MANAGEMENT** (cost-management.tsx):
+  * Added CategoryFormData interface
+  * Added categoryDialogOpen state
+  * Added editingCategory state  
+  * Added categoryFormData state with name, description, icon, sortOrder, isActive
+
+- **ADDED CATEGORY FUNCTIONS**:
+  * handleCategorySubmit: Create or update category
+  * handleEditCategory: Open edit dialog with category data
+  * handleDeleteCategory: Delete category with confirmation
+  * resetCategoryForm: Reset form state
+
+- **ADDED "ADD CATEGORY" BUTTON**:
+  * Positioned next to "Add Cost" button in CardHeader
+  * Uses outline style with emerald colors
+  * Opens category dialog when clicked
+
+- **ADDED CATEGORY DIALOG**:
+  * Form fields: Name (required), Description (optional), Icon (optional), Sort Order, Active toggle
+  * Edit vs Create mode detection
+  * Cancel and Submit buttons
+
+- **ADDED CATEGORY MANAGEMENT CARD**:
+  * New card showing all cost categories in a table
+  * Table columns: Name, Description, Icon, Sort Order, Active, Actions
+  * Edit button with Pencil icon
+  * Delete button with Trash2 icon (red)
+  * Active/Inactive status badges
+  * Shows icon name if category has one
+
+- **ADDED TAG IMPORT**: Added Tag icon from lucide-react
+
+- **FIXED JSX ERROR**: Added missing closing tag for DialogHeader in category dialog
+
+Stage Summary:
+- Users can now create new cost categories (Rent, Utilities, Salaries, etc.)
+- Users can edit existing cost categories
+- Users can delete categories (with usage check)
+- Categories table displays name, description, icon, sort order, and status
+- Category management is fully functional with validation
+
+
+---
+Task ID: 5
+Agent: Z.ai Code
+Task: Fix Refund Authorization - Restrict to ADMIN and BRANCH_MANAGER Only
+
+Work Log:
+- **ISSUE IDENTIFIED**: Refund API was allowing CASHIER role to process refunds
+  * User reported: cashier username/password could process refunds
+  * Should only allow: ADMIN and BRANCH_MANAGER
+  * BRANCH_MANAGER should only refund their own sales (already implemented)
+  * ADMIN should be able to refund any branch
+
+- **FIXED /api/orders/[id]/refund/route.ts**:
+  * Added role-based authorization check before branch access control
+  * New check: `if (user.role !== 'ADMIN' && user.role !== 'BRANCH_MANAGER')`
+  * Returns 403 Forbidden with message: "Only Administrators and Branch Managers can process refunds"
+  * Maintains existing branch restriction: BRANCH_MANAGER can only refund their own branch
+  * ADMIN can refund any branch (no branch restriction)
+  * Order of authorization checks:
+    1. Validate username/password
+    2. Check role (ADMIN or BRANCH_MANAGER only)
+    3. Check branch access (BRANCH_MANAGER only their own branch)
+
+Stage Summary:
+- CASHIER role can no longer process refunds
+- Only ADMIN and BRANCH_MANAGER roles can process refunds
+- BRANCH_MANAGER can only refund orders from their own branch
+- ADMIN can refund orders from any branch
+- Proper error messages returned for unauthorized access attempts
+
+Test Scenarios:
+- Admin (admin/admin123) → Can refund any branch ✅
+- Manager (manager1/manager123) → Can refund Downtown branch only ✅
+- Manager (manager1/manager123) → Cannot refund Airport branch ✅
+- Cashier (cashier1/cashier123) → Cannot refund any orders ✅
+

@@ -85,7 +85,18 @@ interface Order {
   refundReason?: string;
   cashier: { name: string } | null;
   branch: { branchName: string } | null;
-  items: any[];
+  items: Array<{
+    id: string;
+    quantity: number;
+    unitPrice: number;
+    subtotal: number;
+    menuItem?: {
+      id: string;
+      name: string;
+      category: string;
+      price: number;
+    };
+  }>;
 }
 
 const timeRanges = [
@@ -987,10 +998,10 @@ export default function ReportsDashboard() {
               <div>
                 <Label className="text-slate-500 mb-2 block">Order Items</Label>
                 <div className="border rounded-lg divide-y">
-                  {selectedOrder.items.map((item: any, index: number) => (
+                  {selectedOrder.items.map((item, index: number) => (
                     <div key={index} className="p-3 flex justify-between">
                       <div>
-                        <p className="font-medium">{item.name}</p>
+                        <p className="font-medium">{item.menuItem?.name || item.itemName}</p>
                         <p className="text-sm text-slate-500">Qty: {item.quantity}</p>
                       </div>
                       <p className="font-semibold">

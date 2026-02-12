@@ -32,21 +32,22 @@ async function closeShift(id: string, body: any) {
   }
 
   // Calculate actual closing figures from orders
+  // Revenue = subtotal (excludes delivery fees which go to couriers)
   const orderStats = await db.order.aggregate({
     where: {
       shiftId: id,
     },
     _count: true,
     _sum: {
-      totalAmount: true,
+      subtotal: true,
     },
   });
 
-  // Get payment method breakdown
+  // Get payment method breakdown (excludes delivery fees)
   const paymentStats = await db.order.groupBy({
     by: ['paymentMethod'],
     where: { shiftId: id },
-    _sum: { totalAmount: true },
+    _sum: { subtotal: true },
     _count: true,
   });
 
@@ -59,17 +60,17 @@ async function closeShift(id: string, body: any) {
   paymentStats.forEach(stat => {
     const method = stat.paymentMethod.toLowerCase();
     if (method === 'cash') {
-      paymentBreakdown.cash = stat._sum.totalAmount || 0;
+      paymentBreakdown.cash = stat._sum.subtotal || 0;
     } else if (method === 'card') {
-      paymentBreakdown.card = stat._sum.totalAmount || 0;
+      paymentBreakdown.card = stat._sum.subtotal || 0;
     } else {
-      paymentBreakdown.other = (paymentBreakdown.other || 0) + (stat._sum.totalAmount || 0);
+      paymentBreakdown.other = (paymentBreakdown.other || 0) + (stat._sum.subtotal || 0);
     }
   });
 
   console.log('[closeShift] Order stats:', {
     orders: orderStats._count,
-    revenue: orderStats._sum.totalAmount || 0,
+    revenue: orderStats._sum.subtotal || 0,
     paymentBreakdown,
   });
 
@@ -81,7 +82,7 @@ async function closeShift(id: string, body: any) {
       endTime: new Date(),
       isClosed: true,
       closingOrders: orderStats._count,
-      closingRevenue: orderStats._sum.totalAmount || 0,
+      closingRevenue: orderStats._sum.subtotal || 0,
       notes,
     },
     include: {
