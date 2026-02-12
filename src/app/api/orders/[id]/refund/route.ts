@@ -97,9 +97,12 @@ export async function POST(
 
       // Restore inventory for each item
       for (const orderItem of order.items) {
-        // Get recipe for the menu item
+        // Get recipe for the menu item, filtered by variant if present
         const recipes = await tx.recipe.findMany({
-          where: { menuItemId: orderItem.menuItemId },
+          where: {
+            menuItemId: orderItem.menuItemId,
+            menuItemVariantId: orderItem.menuItemVariantId || null,
+          },
         });
 
         // Restore ingredients

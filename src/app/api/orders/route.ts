@@ -226,7 +226,12 @@ export async function POST(request: NextRequest) {
       });
 
       // Calculate inventory deductions based on recipes
-      for (const recipe of menuItem.recipes) {
+      // Filter recipes: if variant selected, only use variant-specific recipes; otherwise use base recipes
+      const relevantRecipes = menuItem.recipes.filter(
+        recipe => recipe.menuItemVariantId === (item.menuItemVariantId || null)
+      );
+
+      for (const recipe of relevantRecipes) {
         const totalDeduction = recipe.quantityRequired * item.quantity;
         inventoryDeductions.push({
           ingredientId: recipe.ingredient.id,
