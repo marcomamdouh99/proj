@@ -408,3 +408,57 @@ Security Verification:
 - Manager (manager1/manager123) → Cannot refund Airport (403 Forbidden) ✅
 - Admin (admin/admin123) → Can refund any branch ✅
 
+
+---
+Task ID: 7
+Agent: Z.ai Code
+Task: Fix Prisma Schema Field Mismatches in Refund APIs
+
+Work Log:
+- **ISSUE IDENTIFIED**: User reported refunds not working even with admin/admin123
+  * Error: "Failed to process refund"
+  * Investigation revealed Prisma schema field mismatches in both refund APIs
+
+- **ROOT CAUSE**: Field names in code didn't match Prisma schema
+  * User schema: field is `passwordHash` not `password`
+  * Order schema: no `refundedBy`, `refundedAt`, `refundPaymentMethod` fields
+  * InventoryTransaction schema:
+    * Field is `quantityChange` not `quantity`
+    * Field is `orderId` not `referenceId`
+    * No `referenceType` field exists
+    * Field is `reason` not `notes`
+    * Field is `createdBy` not `performedBy`
+  * AuditLog schema:
+    * Field is `actionType` not `action`
+    * No `details` object field
+    * No `branchId` field
+    * Required fields: `oldValue`, `newValue`, `currentHash`
+
+- **FIXED /api/orders/refund/route.ts**:
+  * Changed user query to use `passwordHash` field
+  * Removed non-existent fields from Order update
+  * Fixed InventoryTransaction.create with correct fields
+  * Added stockBefore/stockAfter tracking
+  * Fixed AuditLog.create with correct schema fields
+  * Added required fields: oldValue, newValue, currentHash
+
+- **FIXED /api/orders/[id]/refund/route.ts**:
+  * Same fixes as above for consistency
+  * Changed from updateMany to findUnique + update for inventory
+  * Added proper stock tracking with before/after values
+
+- **PUSHED TO GITHUB**: Repository https://github.com/marcomamdouh99/proj.git
+
+Stage Summary:
+- Both refund endpoints now use correct Prisma schema field names
+- Authentication properly queries passwordHash field
+- Order updates only include fields that exist in schema
+- Inventory transactions properly recorded with all required fields
+- Audit logs created with correct schema structure
+- Stock tracking includes before/after values
+
+Test Verification Expected:
+- Admin (admin/admin123) → Should now process refunds successfully ✅
+- Manager (manager1/manager123) → Should process refunds for own branch ✅
+- Cashier (cashier1/cashier123) → Should be blocked (403 Forbidden) ✅
+

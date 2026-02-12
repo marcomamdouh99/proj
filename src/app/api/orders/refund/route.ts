@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,16 +20,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Authenticate user with username AND password
+    // Find user by username first
     const user = await db.user.findFirst({
       where: {
         username: username,
-        passwordHash: password, // In production, use hashed passwords
         isActive: true,
       },
     });
 
     if (!user) {
+      return NextResponse.json(
+        { error: 'Invalid username or password' },
+        { status: 401 }
+      );
+    }
+
+    // Verify password with bcrypt
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!isValidPassword) {
       return NextResponse.json(
         { error: 'Invalid username or password' },
         { status: 401 }
