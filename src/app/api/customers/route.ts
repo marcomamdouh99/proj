@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       tier: customer.tier || 'BRONZE',
       totalSpent: customer.totalSpent || 0,
       orderCount: customer.orderCount || 0,
-      totalOrders: customer.orders.length,
+      totalOrders: customer.orderCount || 0,
       branchId: customer.branchId,
       branchName: customer.branch?.branchName || null,
       addresses: customer.addresses.map((addr) => ({
