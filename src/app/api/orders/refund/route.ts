@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const user = await db.user.findFirst({
       where: {
         username: username,
-        password: password, // In production, use hashed passwords
+        passwordHash: password, // In production, use hashed passwords
         isActive: true,
       },
     });
@@ -82,9 +82,6 @@ export async function POST(request: NextRequest) {
         data: {
           isRefunded: true,
           refundReason: reason,
-          refundedBy: user.id,
-          refundedAt: new Date(),
-          refundPaymentMethod: order.paymentMethod,
         },
       });
 
@@ -135,10 +132,9 @@ export async function POST(request: NextRequest) {
                 quantityChange: quantityToRestore,
                 stockBefore,
                 stockAfter,
-                referenceId: orderId,
-                referenceType: 'ORDER',
-                notes: `Refund for order: ${order.orderNumber}`,
-                performedBy: user.id,
+                orderId: orderId,
+                reason: `Refund for order: ${order.orderNumber}`,
+                createdBy: user.id,
               },
             });
           }
@@ -206,15 +202,12 @@ export async function POST(request: NextRequest) {
       await tx.auditLog.create({
         data: {
           userId: user.id,
-          action: 'ORDER_REFUND',
+          actionType: 'ORDER_REFUND',
           entityType: 'ORDER',
           entityId: orderId,
-          details: {
-            orderNumber: order.orderNumber,
-            refundAmount: order.totalAmount,
-            refundReason: reason,
-          },
-          branchId: user.branchId || order.branchId,
+          oldValue: order.isRefunded.toString(),
+          newValue: 'true',
+          currentHash: `refund-${orderId}-${Date.now()}`,
         },
       });
     });

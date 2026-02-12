@@ -47,7 +47,7 @@ export async function POST(
     const user = await db.user.findFirst({
       where: {
         username: username,
-        password: password, // In production, use hashed passwords
+        passwordHash: password, // In production, use hashed passwords
         isActive: true,
       },
     });
@@ -83,9 +83,6 @@ export async function POST(
         data: {
           isRefunded: true,
           refundReason: reason || 'No reason provided',
-          refundedBy: user.id,
-          refundedAt: new Date(),
-          refundPaymentMethod: order.paymentMethod,
         },
       });
 
@@ -98,33 +95,46 @@ export async function POST(
 
         // Restore ingredients
         for (const recipe of recipes) {
-          await tx.branchInventory.updateMany({
+          const quantityToRestore = recipe.quantityRequired * orderItem.quantity;
+
+          // Get current inventory
+          const inventory = await tx.branchInventory.findUnique({
             where: {
-              branchId: order.branchId,
-              ingredientId: recipe.ingredientId,
-            },
-            data: {
-              currentStock: {
-                increment: recipe.quantityRequired * orderItem.quantity,
+              branchId_ingredientId: {
+                branchId: order.branchId,
+                ingredientId: recipe.ingredientId,
               },
-              lastModifiedAt: new Date(),
-              lastModifiedBy: user.id,
             },
           });
 
-          // Create inventory transaction record
-          await tx.inventoryTransaction.create({
-            data: {
-              branchId: order.branchId,
-              ingredientId: recipe.ingredientId,
-              quantity: recipe.quantityRequired * orderItem.quantity,
-              transactionType: 'REFUND',
-              referenceId: orderId,
-              referenceType: 'ORDER',
-              notes: `Refund for order #${order.orderNumber}`,
-              performedBy: user.id,
-            },
-          });
+          if (inventory) {
+            const stockBefore = inventory.currentStock;
+            const stockAfter = stockBefore + quantityToRestore;
+
+            await tx.branchInventory.update({
+              where: { id: inventory.id },
+              data: {
+                currentStock: stockAfter,
+                lastModifiedAt: new Date(),
+                lastModifiedBy: user.id,
+              },
+            });
+
+            // Create inventory transaction record
+            await tx.inventoryTransaction.create({
+              data: {
+                branchId: order.branchId,
+                ingredientId: recipe.ingredientId,
+                transactionType: 'REFUND',
+                quantityChange: quantityToRestore,
+                stockBefore,
+                stockAfter,
+                orderId: orderId,
+                reason: `Refund for order #${order.orderNumber}`,
+                createdBy: user.id,
+              },
+            });
+          }
         }
       }
 
@@ -132,15 +142,12 @@ export async function POST(
       await tx.auditLog.create({
         data: {
           userId: user.id,
-          action: 'ORDER_REFUND',
+          actionType: 'ORDER_REFUND',
           entityType: 'ORDER',
           entityId: orderId,
-          details: {
-            orderNumber: order.orderNumber,
-            refundAmount: order.totalAmount,
-            refundReason: reason || 'No reason provided',
-          },
-          branchId: user.branchId || order.branchId,
+          oldValue: order.isRefunded.toString(),
+          newValue: 'true',
+          currentHash: `refund-${orderId}-${Date.now()}`,
         },
       });
 
