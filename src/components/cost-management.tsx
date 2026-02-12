@@ -158,18 +158,19 @@ export default function CostManagement() {
   }, [currentUser]);
 
   // Fetch cost categories
-  useEffect(() => {
-    const fetchCostCategories = async () => {
-      try {
-        const response = await fetch('/api/cost-categories');
-        const data = await response.json();
-        if (response.ok && data.costCategories) {
-          setCostCategories(data.costCategories);
-        }
-      } catch (error) {
-        console.error('Failed to fetch cost categories:', error);
+  const fetchCostCategories = async () => {
+    try {
+      const response = await fetch('/api/cost-categories');
+      const data = await response.json();
+      if (response.ok && data.costCategories) {
+        setCostCategories(data.costCategories);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch cost categories:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchCostCategories();
   }, []);
 
