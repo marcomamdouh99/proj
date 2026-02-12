@@ -462,3 +462,45 @@ Test Verification Expected:
 - Manager (manager1/manager123) → Should process refunds for own branch ✅
 - Cashier (cashier1/cashier123) → Should be blocked (403 Forbidden) ✅
 
+
+---
+Task ID: 8
+Agent: Z.ai Code
+Task: Fix Password Authentication - Use bcrypt.compare()
+
+Work Log:
+- **ISSUE IDENTIFIED**: "Invalid username or password" with correct credentials
+  * User reported admin/admin123 not working
+  * User reported cashier1/cashier123 not working
+  * All users failing authentication
+
+- **ROOT CAUSE**: Direct password comparison to bcrypt hash
+  * Seed file uses bcrypt.hash() to store passwords: `await bcrypt.hash('admin123', 10)`
+  * Database contains bcrypt hashes: `$2a$10$abc123...`
+  * Code was comparing plain text directly: `passwordHash: password`
+  * Plain text "admin123" never matches hash "$2a$10$..."
+  * This is a fundamental bcrypt usage error
+
+- **FIXED BOTH REFUND ENDPOINTS**:
+  * Added bcryptjs import
+  * Changed authentication flow:
+    1. Find user by username only (no password comparison in query)
+    2. Use bcrypt.compare(password, user.passwordHash) to verify
+    3. Return 401 if password doesn't match hash
+  * Proper bcrypt password verification now implemented
+
+- **PUSHED TO GITHUB**: Repository https://github.com/marcomamdouh99/proj.git
+
+Stage Summary:
+- Authentication now uses proper bcrypt.compare() for password verification
+- All users can now authenticate with correct credentials
+- Security maintained - passwords still hashed in database
+- Both refund endpoints use same authentication pattern
+
+Test Verification:
+- Admin (admin/admin123) → Can authenticate and process refunds ✅
+- Manager (manager1/manager123) → Can authenticate (own branch refunds) ✅
+- Manager (manager1/manager123) → Blocked from other branches (403) ✅
+- Cashier (cashier1/cashier123) → Can authenticate (but blocked by role) ✅
+- Cashier (cashier1/cashier123) → Cannot process refunds (403) ✅
+
