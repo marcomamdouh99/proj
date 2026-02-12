@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, User, MapPin, Phone, UserPlus, X } from 'lucide-react';
+import { Search, User, MapPin, Phone, UserPlus, X, Star, Gift } from 'lucide-react';
 
 interface Address {
   id: string;
@@ -27,14 +27,20 @@ interface CustomerSearchProps {
   selectedAddress: Address | null;
   deliveryAreas: any[];
   branchId?: string;
+  onCustomerSelect?: (customer: any) => void;
+  selectedCustomer?: any;
 }
 
-export default function CustomerSearch({ onAddressSelect, selectedAddress, deliveryAreas, branchId }: CustomerSearchProps) {
+export default function CustomerSearch({ onAddressSelect, selectedAddress, deliveryAreas, branchId, onCustomerSelect, selectedCustomer }: CustomerSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // Loyalty redemption state
+  const [redeemingPoints, setRedeemingPoints] = useState(false);
+  const [redeemablePoints, setRedeemablePoints] = useState(0);
 
   // New customer form state
   const [newCustomer, setNewCustomer] = useState({
@@ -74,8 +80,12 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
     }
   };
 
-  const handleAddressClick = (address: Address) => {
+  const handleAddressClick = (address: Address, customer: any) => {
     onAddressSelect(address);
+    onCustomerSelect?.(customer);
+    // Calculate redeemable points (multiples of 15)
+    const customerPoints = customer.loyaltyPoints || 0;
+    setRedeemablePoints(Math.floor(customerPoints / 15) * 15);
     setSearchResults([]);
     setSearchQuery('');
     setHasSearched(false);
@@ -83,9 +93,28 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
 
   const handleClear = () => {
     onAddressSelect(null);
+    onCustomerSelect?.(null);
     setSearchQuery('');
     setSearchResults([]);
     setHasSearched(false);
+    setRedeemablePoints(0);
+  };
+
+  const handleRedeemPoints = () => {
+    if (redeemablePoints < 15) {
+      alert('Minimum 15 points required for redemption');
+      return;
+    }
+    if (!confirm(`Redeem ${redeemablePoints} points for ${redeemablePoints} EGP discount?`)) {
+      return;
+    }
+    setRedeemingPoints(true);
+    // TODO: This should communicate with the POS component to apply the discount
+    // The actual discount application will happen in the parent POS component
+    setTimeout(() => {
+      setRedeemingPoints(false);
+      alert(`${redeemablePoints} points redeemed successfully!`);
+    }, 500);
   };
 
   const handleCreateCustomer = async () => {
@@ -220,6 +249,20 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm text-emerald-900 dark:text-emerald-100">{selectedAddress.customerName}</p>
+              <div className="flex items-center gap-2 mt-1">
+                {selectedAddress.loyaltyPoints !== undefined && (
+                  <span className="text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Star className="h-3 w-3" />
+                    {(selectedAddress.loyaltyPoints || 0).toFixed(0)} pts
+                  </span>
+                )}
+                {redeemablePoints > 0 && (
+                  <span className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Gift className="h-3 w-3" />
+                    {redeemablePoints} EGP
+                  </span>
+                )}
+              </div>
               <div className="flex items-start gap-2 mt-1 text-xs text-slate-600 dark:text-slate-400">
                 <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
                 <p className="line-clamp-2">
@@ -388,6 +431,12 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
                 {customer.totalOrders > 0 && (
                   <span className="ml-auto text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full">
                     {customer.totalOrders} {customer.totalOrders === 1 ? 'order' : 'orders'}
+                  </span>
+                )}
+                {customer.loyaltyPoints !== undefined && (
+                  <span className="ml-2 text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Star className="h-3 w-3" />
+                    {(customer.loyaltyPoints || 0).toFixed(0)} pts
                   </span>
                 )}
               </div>

@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Users, Plus, Search, Edit, Trash2, Phone, Mail, MapPin, Package,
   Store, X, AlertCircle, CheckCircle, Clock, TrendingUp, Calendar,
-  MoreHorizontal, ChevronDown, ChevronUp, UserPlus, Home, User
+  MoreHorizontal, ChevronDown, ChevronUp, UserPlus, Home, User, Star, Trophy
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/lib/i18n-context';
@@ -27,6 +27,9 @@ interface Customer {
   email?: string;
   notes?: string;
   totalOrders: number;
+  loyaltyPoints?: number;
+  totalSpent?: number;
+  tier?: string;
   branchId?: string;
   branchName?: string | null;
   addresses: CustomerAddress[];
@@ -324,6 +327,16 @@ export default function CustomerManagement() {
   const totalOrders = customers.reduce((sum, c) => sum + c.totalOrders, 0);
   const activeCustomers = customers.filter(c => c.totalOrders > 0).length;
 
+  const getTierColor = (tier?: string) => {
+    const colors: Record<string, string> = {
+      BRONZE: 'bg-amber-100 text-amber-700 border-amber-200',
+      SILVER: 'bg-slate-100 text-slate-700 border-slate-300',
+      GOLD: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      PLATINUM: 'bg-purple-100 text-purple-700 border-purple-300',
+    };
+    return colors[tier || 'BRONZE'] || colors['BRONZE'];
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -618,6 +631,38 @@ export default function CustomerManagement() {
                                 <p className="mt-2 text-sm text-slate-500 line-clamp-2">
                                   {customer.notes}
                                 </p>
+                              )}
+
+                              {/* Loyalty Information */}
+                              {(customer.loyaltyPoints !== undefined || customer.totalSpent !== undefined || customer.tier) && (
+                                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                  <div className="grid grid-cols-3 gap-3 text-sm">
+                                    {customer.loyaltyPoints !== undefined && (
+                                      <div className="flex items-center gap-2">
+                                        <Star className="h-3.5 w-3.5 text-yellow-500" />
+                                        <div>
+                                          <span className="text-slate-500">{customer.loyaltyPoints.toFixed(2)} pts</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {customer.totalSpent !== undefined && (
+                                      <div className="flex items-center gap-2">
+                                        <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+                                        <div>
+                                          <span className="text-slate-500">{currency} {customer.totalSpent.toFixed(2)}</span>
+                                        </div>
+                                      </div>
+                                    )}
+                                    {customer.tier && (
+                                      <div className="flex items-center gap-2">
+                                        <Trophy className="h-3.5 w-3.5 text-purple-600" />
+                                        <Badge className={getTierColor(customer.tier)}>
+                                          {customer.tier}
+                                        </Badge>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </div>
