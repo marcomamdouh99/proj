@@ -317,54 +317,7 @@ export default function BranchManagement() {
         </CardContent>
       </Card>
 
-      {/* Tax Configuration Card */}
-      <Card className="bg-primary/5 border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-primary" />
-            Tax Configuration
-          </CardTitle>
-          <CardDescription>
-            Enable or disable 14% tax for each branch
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="flex-1">
-              <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                <SelectTrigger className="border-primary/30 focus:border-primary">
-                  <SelectValue placeholder="Select branch..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {branches.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.branchName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {selectedBranch && (
-              <div className="flex items-center gap-4 p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={getBranchTax(selectedBranch)}
-                    onCheckedChange={(checked) => setBranchTax(selectedBranch, checked)}
-                  />
-                  <div>
-                    <p className="font-medium">
-                      {getBranchTax(selectedBranch) ? '✅ Tax Enabled (14%)' : '❌ Tax Disabled'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      for {branches.find(b => b.id === selectedBranch)?.branchName}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+     
 
       <Card>
         <CardHeader>
