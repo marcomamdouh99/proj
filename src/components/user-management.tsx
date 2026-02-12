@@ -204,8 +204,18 @@ export default function UserManagement() {
     if (!passwordTargetUser || !currentUser) return;
 
     // Validate
-    if (passwordData.newPassword.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters long' });
+    if (passwordData.newPassword.length < 8) {
+      setMessage({ type: 'error', text: 'Password must be at least 8 characters long' });
+      return;
+    }
+
+    if (!/[A-Z]/.test(passwordData.newPassword)) {
+      setMessage({ type: 'error', text: 'Password must contain at least one uppercase letter' });
+      return;
+    }
+
+    if (!/[a-z0-9]/.test(passwordData.newPassword)) {
+      setMessage({ type: 'error', text: 'Password must contain at least one lowercase letter or number' });
       return;
     }
 
@@ -293,22 +303,40 @@ export default function UserManagement() {
       return;
     }
 
-    if (!editingUser && formData.password && formData.password.length < 6) {
-      setMessage({ type: 'error', text: 'Password must be at least 6 characters' });
-      return;
+    if (!editingUser && formData.password) {
+      if (formData.password.length < 8) {
+        setMessage({ type: 'error', text: 'Password must be at least 8 characters' });
+        return;
+      }
+      if (!/[A-Z]/.test(formData.password)) {
+        setMessage({ type: 'error', text: 'Password must contain at least one uppercase letter' });
+        return;
+      }
+      if (!/[a-z0-9]/.test(formData.password)) {
+        setMessage({ type: 'error', text: 'Password must contain at least one lowercase letter or number' });
+        return;
+      }
     }
 
     setLoading(true);
     setMessage(null);
 
     try {
+      // Prepare data for submission
+      const submissionData = {
+        ...formData,
+        createdBy: currentUser?.id,
+        // For ADMIN role, don't send branchId (backend will set it to null)
+        branchId: formData.role === 'ADMIN' ? undefined : formData.branchId,
+      };
+
       if (editingUser) {
         // Update user
         const response = await fetch(`/api/users/${editingUser.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...formData,
+            ...submissionData,
             requesterId: currentUser?.id,
             requesterRole: currentUser?.role,
           }),
@@ -327,10 +355,7 @@ export default function UserManagement() {
         const response = await fetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...formData,
-            createdBy: currentUser?.id,
-          }),
+          body: JSON.stringify(submissionData),
         });
 
         const data = await response.json();
@@ -531,23 +556,28 @@ export default function UserManagement() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="branch">Branch</Label>
-                        <Select
-                          value={formData.branchId}
-                          onValueChange={(value: any) => setFormData({ ...formData, branchId: value })}
-                          disabled={formData.role === 'ADMIN'}
-                        >
-                          <SelectTrigger id="branch">
-                            <SelectValue placeholder="Select Branch" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None (HQ Admin)</SelectItem>
-                            {branches.map((branch) => (
-                              <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {formData.role === 'ADMIN' ? (
+                          <div className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-md text-slate-500">
+                            None (HQ Admin - No branch assigned)
+                          </div>
+                        ) : (
+                          <Select
+                            value={formData.branchId}
+                            onValueChange={(value: any) => setFormData({ ...formData, branchId: value })}
+                            disabled={formData.role === 'ADMIN'}
+                          >
+                            <SelectTrigger id="branch">
+                              <SelectValue placeholder="Select Branch" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {branches.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                  {branch.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         {currentUser?.role === 'BRANCH_MANAGER' && (
                           <p className="text-xs text-slate-500 mt-1">Creating user for your branch</p>
                         )}
@@ -562,9 +592,11 @@ export default function UserManagement() {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             placeholder="••••••••"
                             required
-                            minLength={6}
+                            minLength={8}
                           />
-                          <p className="text-xs text-slate-500">Minimum 6 characters</p>
+                          <p className="text-xs text-slate-500">
+                            Minimum 8 characters, must include uppercase and lowercase/number
+                          </p>
                         </div>
                       )}
                     </div>
@@ -683,7 +715,7 @@ export default function UserManagement() {
                 value={passwordData.newPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                 placeholder="Enter new password"
-                minLength={6}
+                minLength={8}
                 disabled={passwordLoading}
               />
             </div>
@@ -695,11 +727,13 @@ export default function UserManagement() {
                 value={passwordData.confirmPassword}
                 onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                 placeholder="Confirm new password"
-                minLength={6}
+                minLength={8}
                 disabled={passwordLoading}
               />
             </div>
-            <p className="text-xs text-slate-500">Minimum 6 characters</p>
+            <p className="text-xs text-slate-500">
+              Minimum 8 characters, must include uppercase and lowercase/number
+            </p>
           </div>
           <DialogFooter>
             <Button
