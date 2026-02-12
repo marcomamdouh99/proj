@@ -20,6 +20,7 @@ interface Address {
   deliveryAreaId?: string;
   orderCount?: number;
   isDefault?: boolean;
+  loyaltyPoints?: number;
 }
 
 interface CustomerSearchProps {
@@ -445,12 +446,7 @@ export default function CustomerSearch({ onAddressSelect, selectedAddress, deliv
                   {customer.addresses.map((address: any) => (
                     <button
                       key={address.id}
-                      onClick={() => handleAddressClick({
-                        ...address,
-                        customerPhone: customer.phone,
-                        customerName: customer.name,
-                        customerId: customer.id,
-                      })}
+                      onClick={() => handleAddressClick(address, customer)}
                       className="w-full p-3 text-left hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors group"
                     >
                       <div className="flex items-start gap-2">

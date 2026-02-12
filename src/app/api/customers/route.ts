@@ -64,6 +64,7 @@ export async function GET(request: NextRequest) {
         deliveryAreaId: addr.deliveryAreaId,
         orderCount: addr.orderCount,
         isDefault: addr.isDefault,
+        loyaltyPoints: customer.loyaltyPoints || 0,
       })),
       createdAt: customer.createdAt,
     }));
