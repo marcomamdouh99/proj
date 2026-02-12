@@ -572,7 +572,7 @@ export default function POSInterface() {
               <Store className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">Emperor30</h1>
+              <h1 className="font-bold text-xl text-slate-900 dark:text-white tracking-tight">Emperor</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide uppercase">POS System</p>
             </div>
           </div>
