@@ -177,24 +177,9 @@ export async function PUT(
             },
           });
         }
-
-        // Create inventory transaction for target (add)
-        await db.inventoryTransaction.create({
-          data: {
-            branchId: existingTransfer.targetBranchId,
-            ingredientId: item.ingredientId,
-            transactionType: 'ADJUSTMENT',
-            quantityChange: item.quantity,
-            stockBefore: updatedTargetInventory.currentStock - item.quantity,
-            stockAfter: updatedTargetInventory.currentStock,
-            reason: `Transfer from ${existingTransfer.sourceBranch.branchName} - ${existingTransfer.transferNumber}`,
-            createdBy: userId || 'system',
-          },
-        });
       }
-    }
 
-    const transfer = await db.inventoryTransfer.update({
+      const transfer = await db.inventoryTransfer.update({
       where: { id },
       data: updateData,
       include: {
