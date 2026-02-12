@@ -48,6 +48,9 @@ interface MenuItemVariant {
     id: string;
     name: string;
   };
+  productCost?: number;
+  profit?: number;
+  profitMargin?: number;
 }
 
 interface Category {
@@ -1137,18 +1140,42 @@ export default function MenuManagement() {
                                   </h4>
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {item.variants?.map((variant) => (
-                                      <div key={variant.id} className="bg-white p-3 rounded border flex justify-between items-center">
-                                        <div>
-                                          <div className="font-medium text-sm">
-                                            {variant.variantType.name}: {variant.variantOption.name}
+                                      <div key={variant.id} className="bg-white p-4 rounded border shadow-sm">
+                                        <div className="space-y-3">
+                                          <div>
+                                            <div className="font-semibold text-sm mb-1">
+                                              {variant.variantType.name}: {variant.variantOption.name}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mb-2">
+                                              Price: {formatCurrency(getVariantPrice(item.price, variant.priceModifier), currency)}
+                                              {variant.priceModifier !== 0 && (
+                                                <span className={`ml-2 ${variant.priceModifier > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                  ({variant.priceModifier > 0 ? '+' : ''}{formatCurrency(variant.priceModifier, currency)})
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
-                                          <div className="text-xs text-slate-500">
-                                            Price: {formatCurrency(getVariantPrice(item.price, variant.priceModifier), currency)}
-                                            {variant.priceModifier !== 0 && (
-                                              <span className={`ml-2 ${variant.priceModifier > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                ({variant.priceModifier > 0 ? '+' : ''}{formatCurrency(variant.priceModifier, currency)})
+
+                                          {/* Cost Information */}
+                                          <div className="space-y-1.5 text-xs pt-2 border-t border-slate-100">
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-500">Product Cost:</span>
+                                              <span className="text-red-600 font-medium">
+                                                {variant.productCost !== undefined ? formatCurrency(variant.productCost, currency) : '-'}
                                               </span>
-                                            )}
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-500">Profit:</span>
+                                              <span className="text-blue-600 font-medium">
+                                                {variant.profit !== undefined ? formatCurrency(variant.profit, currency) : '-'}
+                                              </span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                              <span className="text-slate-500">Margin:</span>
+                                              <span className={`font-medium ${getProfitMarginColor(variant.profitMargin)}`}>
+                                                {variant.profitMargin !== undefined ? `${variant.profitMargin.toFixed(1)}%` : '-'}
+                                              </span>
+                                            </div>
                                           </div>
                                         </div>
                                         <Button

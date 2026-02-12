@@ -56,6 +56,18 @@ export async function GET(request: NextRequest) {
                     name: true,
                   },
                 },
+                recipes: {
+                  include: {
+                    ingredient: {
+                      select: {
+                        id: true,
+                        name: true,
+                        costPerUnit: true,
+                        unit: true,
+                      },
+                    },
+                  },
+                },
               },
               orderBy: { sortOrder: 'asc' },
             },
@@ -64,22 +76,48 @@ export async function GET(request: NextRequest) {
       });
     }, 300000); // 5 minute cache
 
-    // Calculate dynamic product cost for each menu item
+    // Calculate dynamic product cost for each menu item and its variants
     const menuItemsWithCost = menuItems.map(item => {
-      const productCost = item.recipes.reduce((total, recipe) => {
+      // Calculate base product cost (from base recipes where menuItemVariantId is null)
+      const baseProductCost = item.recipes.reduce((total, recipe) => {
         const ingredientCost = recipe.quantityRequired * recipe.ingredient.costPerUnit;
         return total + ingredientCost;
       }, 0);
 
-      // Calculate profit margin
-      const profit = item.price - productCost;
+      // Calculate profit and margin for base item
+      const profit = item.price - baseProductCost;
       const profitMargin = item.price > 0 ? (profit / item.price) * 100 : 0;
+
+      // Calculate costs for each variant
+      const variantsWithCost = item.variants?.map(variant => {
+        // Use variant-specific recipes if available, otherwise fall back to base recipes
+        const variantRecipes = variant.recipes && variant.recipes.length > 0
+          ? variant.recipes
+          : item.recipes;
+
+        const variantProductCost = variantRecipes.reduce((total, recipe) => {
+          const ingredientCost = recipe.quantityRequired * recipe.ingredient.costPerUnit;
+          return total + ingredientCost;
+        }, 0);
+
+        const variantPrice = item.price + variant.priceModifier;
+        const variantProfit = variantPrice - variantProductCost;
+        const variantProfitMargin = variantPrice > 0 ? (variantProfit / variantPrice) * 100 : 0;
+
+        return {
+          ...variant,
+          productCost: parseFloat(variantProductCost.toFixed(2)),
+          profit: parseFloat(variantProfit.toFixed(2)),
+          profitMargin: parseFloat(variantProfitMargin.toFixed(2)),
+        };
+      }) || [];
 
       return {
         ...item,
-        productCost: parseFloat(productCost.toFixed(2)),
+        productCost: parseFloat(baseProductCost.toFixed(2)),
         profit: parseFloat(profit.toFixed(2)),
         profitMargin: parseFloat(profitMargin.toFixed(2)),
+        variants: variantsWithCost,
       };
     });
 
